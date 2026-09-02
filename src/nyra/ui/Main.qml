@@ -303,7 +303,11 @@ ApplicationWindow {
                 color: root.soft; border.color: root.line
                 RowLayout {
                     anchors.fill: parent; anchors.margins: 10
-                    ColumnLayout { spacing: 2; Tiny { text: "ESTADO // DISPONÍVEL"; color: root.cyan }; Tiny { text: "NETWORK // LOCKED" } }
+                    ColumnLayout {
+                        spacing: 2
+                        Tiny { text: "ESTADO // DISPONÍVEL"; color: root.cyan }
+                        Tiny { text: "NETWORK // LOCKED" }
+                    }
                     Item { Layout.fillWidth: true }
                     Label { text: "◉"; color: root.cyan; font.pixelSize: 18 }
                 }
