@@ -1,0 +1,29 @@
+name: Nyra CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install project
+        run: python -m pip install -e .
+      - name: Compile Python
+        run: python -m compileall -q src
+      - name: Validate QML
+        shell: pwsh
+        run: |
+          $qmllint = Get-Command pyside6-qmllint -ErrorAction SilentlyContinue
+          if ($qmllint) {
+            pyside6-qmllint src/nyra/ui/Main.qml
+          } else {
+            Write-Error "pyside6-qmllint was not installed with PySide6"
+          }
