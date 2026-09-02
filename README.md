@@ -2,6 +2,14 @@
 
 Repositório de desenvolvimento da assistente pessoal local para Windows.
 
+## Identidade
+
+- **Nome:** Nyra
+- **Designação técnica:** N.Y.R.A. — Neural Yielding Reasoning Assistant
+- **Tipo:** Personal Local Intelligence
+
+NYRA é o nome usado na interação cotidiana. A forma `N.Y.R.A.` e sua expansão aparecem como designação técnica no boot, nas configurações, na documentação e em áreas internas do sistema.
+
 ## Direção atual
 
 O projeto seguirá uma arquitetura **local-first**, com Python como linguagem principal, IA local, memória local, interação por voz e acesso à internet somente quando necessário e autorizado pelo usuário de forma natural durante a conversa.
