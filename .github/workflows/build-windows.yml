@@ -1,0 +1,36 @@
+name: Build Nyra Windows
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'pyproject.toml'
+      - 'run_nyra.py'
+      - '.github/workflows/build-windows.yml'
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pyinstaller
+      - name: Build Nyra
+        shell: pwsh
+        run: |
+          pyinstaller --noconfirm --clean --windowed --name Nyra --add-data "src/nyra/ui;nyra/ui" run_nyra.py
+      - name: Package build
+        shell: pwsh
+        run: Compress-Archive -Path dist/Nyra/* -DestinationPath Nyra-0.1-Windows.zip -Force
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Nyra-0.1-Windows
+          path: Nyra-0.1-Windows.zip
+          if-no-files-found: error
