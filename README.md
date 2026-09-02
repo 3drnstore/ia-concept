@@ -12,16 +12,45 @@ NYRA é o nome usado na interação cotidiana. A forma `N.Y.R.A.` e sua expansã
 
 ## Direção atual
 
-O projeto seguirá uma arquitetura **local-first**, com Python como linguagem principal, IA local, memória local, interação por voz e acesso à internet somente quando necessário e autorizado pelo usuário de forma natural durante a conversa.
+O projeto segue uma arquitetura **local-first**, com Python como linguagem principal, IA local, memória local, interação por voz e acesso à internet somente quando necessário e autorizado pelo usuário de forma natural durante a conversa.
 
-A direção visual escolhida para o aplicativo principal é o **Conceito 03 — Central de Comando**. Os dois conceitos anteriores foram preservados neste repositório para possível reaproveitamento em outros projetos.
+A direção visual escolhida para o aplicativo principal é o **Conceito 03 — Central de Comando**.
 
-O Conceito 03 terá dois modos do mesmo aplicativo:
+O Conceito 03 possui dois modos do mesmo aplicativo:
 
 - **Expandido / desktop**: composição horizontal para monitor de PC e janela maximizada.
 - **Compacto**: reorganização vertical para janelas menores.
 
-A interface deverá alternar entre esses estados conforme a largura disponível, sem perder contexto, conversa ou estado da assistente.
+A interface alterna entre esses estados conforme a largura disponível, sem perder contexto ou estado da assistente.
+
+## Desenvolvimento iniciado — Nyra 0.1
+
+A primeira versão funcional já começou a ser implementada em `src/nyra/`.
+
+Base atual:
+
+- Python 3.11+
+- PySide6 + QML
+- SQLite local
+- layout expandido e compacto responsivo
+- criação, seleção e conclusão de demandas
+- painel visual da Nyra
+- barra de comando por texto preparada para receber o núcleo local de IA
+
+O banco local é criado em `%LOCALAPPDATA%/NYRA/nyra.sqlite3` no Windows.
+
+### Executar no Windows durante o desenvolvimento
+
+No PowerShell, dentro da pasta do projeto:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts/setup_windows.ps1
+powershell -ExecutionPolicy Bypass -File scripts/run_windows.ps1
+```
+
+O primeiro comando cria um ambiente Python isolado e instala as dependências. O segundo abre a Nyra.
+
+Veja `docs/roadmap.md` para os próximos marcos.
 
 ## Arquivo de conceitos visuais
 
@@ -31,7 +60,7 @@ A interface deverá alternar entre esses estados conforme a largura disponível,
 - `ui-concepts/concept-03/compact/index.html` — protótipo da versão compacta.
 - `ui-concepts/concept-03/expanded/index.html` — protótipo horizontal para desktop.
 
-Os arquivos HTML são protótipos visuais independentes e servem como referência de design e interação. A implementação final será integrada ao aplicativo Python.
+Os arquivos HTML são protótipos visuais independentes e servem como referência de design e interação. A implementação real está sendo construída em Python/QML.
 
 ## Princípios já definidos
 
