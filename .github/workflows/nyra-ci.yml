@@ -28,7 +28,7 @@ jobs:
         run: |
           $qmllint = Get-Command pyside6-qmllint -ErrorAction SilentlyContinue
           if ($qmllint) {
-            pyside6-qmllint src/nyra/ui/Main.qml
+            pyside6-qmllint src/nyra/ui/NyraShell.qml
           } else {
             Write-Error "pyside6-qmllint was not installed with PySide6"
           }
