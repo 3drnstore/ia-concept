@@ -18,6 +18,11 @@ jobs:
         run: python -m pip install -e .
       - name: Compile Python
         run: python -m compileall -q src
+      - name: Test telemetry backend
+        shell: pwsh
+        run: |
+          $env:LOCALAPPDATA = "$env:RUNNER_TEMP\nyra-test"
+          python -c "from nyra.system_monitor import SystemMonitor; m=SystemMonitor(); assert 0 <= m.cpuPercent <= 100; assert 0 <= m.ramPercent <= 100; assert m.gpuPercent == -1 or 0 <= m.gpuPercent <= 100; print(m.gpuName, m.gpuStatus)"
       - name: Validate QML
         shell: pwsh
         run: |
