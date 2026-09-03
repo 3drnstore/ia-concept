@@ -25,7 +25,7 @@ def main() -> int:
     engine.rootContext().setContextProperty("systemMonitor", system_monitor)
     engine.rootContext().setContextProperty("aiCore", ai_core)
 
-    qml_path = Path(__file__).resolve().parent / "ui" / "NyraShell.qml"
+    qml_path = Path(__file__).resolve().parent / "ui" / "ConceptShell.qml"
     engine.load(QUrl.fromLocalFile(str(qml_path)))
 
     if not engine.rootObjects():
