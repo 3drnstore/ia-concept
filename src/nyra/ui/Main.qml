@@ -3,485 +3,64 @@ import QtQuick.Controls
 import QtQuick.Layouts
 
 ApplicationWindow {
-    id: root
-    width: 1440
-    height: 860
-    minimumWidth: 760
-    minimumHeight: 620
-    visible: true
-    title: "Nyra — Personal Local Intelligence"
-    color: "#060a0d"
+ id:root; width:1440; height:860; minimumWidth:720; minimumHeight:600; visible:true
+ title:"NYRA // NEXUS COMMAND CORE"; color:"#020609"; font.family:"Segoe UI"
+ property bool compactOverride:false
+ readonly property bool compact:compactOverride || width<1080
+ property bool talking:false
+ property string assistantText:"Estou aqui.\nPode falar comigo normalmente."
+ property color cyan:"#22ddeb"; property color panel:"#09151b"; property color soft:"#0b1b22"
+ property color line:"#173741"; property color ink:"#e6f5f7"; property color muted:"#849da4"
 
-    property bool compact: width < 1120
-    property color panel: "#0d151a"
-    property color soft: "#0a1115"
-    property color line: "#20353c"
-    property color cyan: "#69d9dc"
-    property color cyanDim: "#1b5055"
-    property color textMain: "#e5f0f1"
-    property color textMuted: "#83979c"
-    property color danger: "#d47178"
-    property string assistantText: "Estou aqui. Pode falar comigo normalmente."
-
-    font.family: "Segoe UI"
-
-    component Panel: Rectangle {
-        radius: 16
-        color: root.panel
-        border.color: root.line
-        border.width: 1
-    }
-
-    component Tiny: Label {
-        color: root.textMuted
-        font.family: "Consolas"
-        font.pixelSize: 10
-        font.letterSpacing: 1.0
-    }
-
-    component CoreOrb: Item {
-        implicitWidth: 118
-        implicitHeight: 118
-        Rectangle {
-            anchors.centerIn: parent
-            width: 114; height: 114; radius: 57
-            color: "#081216"; border.color: "#285860"
-        }
-        Rectangle {
-            anchors.centerIn: parent
-            width: 84; height: 84; radius: 42
-            color: "transparent"; border.color: "#397d84"; opacity: .7
-            RotationAnimator on rotation { from: 0; to: 360; duration: 9000; loops: Animation.Infinite }
-        }
-        Rectangle {
-            anchors.centerIn: parent
-            width: 50; height: 50; radius: 25
-            gradient: Gradient {
-                GradientStop { position: 0.0; color: "#cfffff" }
-                GradientStop { position: 0.25; color: "#5fcfd4" }
-                GradientStop { position: 0.62; color: "#174149" }
-                GradientStop { position: 1.0; color: "#071014" }
-            }
-            SequentialAnimation on scale {
-                loops: Animation.Infinite
-                NumberAnimation { to: 1.07; duration: 1200; easing.type: Easing.InOutQuad }
-                NumberAnimation { to: .96; duration: 1200; easing.type: Easing.InOutQuad }
-            }
-        }
-        Rectangle { anchors.centerIn: parent; width: 6; height: 6; radius: 3; color: "#efffff" }
-    }
-
-    component TaskCard: Rectangle {
-        id: taskCard
-        required property var taskData
-        property bool selected: taskStore.selectedTask && taskStore.selectedTask.id === taskData.id
-        radius: 12
-        color: selected ? "#13262b" : root.soft
-        border.color: selected ? root.cyanDim : root.line
-        border.width: 1
-        implicitHeight: 88
-
-        MouseArea {
-            anchors.fill: parent
-            cursorShape: Qt.PointingHandCursor
-            onClicked: taskStore.selectTask(taskCard.taskData.id)
-        }
-        ColumnLayout {
-            anchors.fill: parent
-            anchors.margins: 11
-            spacing: 6
-            RowLayout {
-                Layout.fillWidth: true
-                Label {
-                    text: taskCard.taskData.title
-                    color: root.textMain
-                    font.pixelSize: 13
-                    font.bold: true
-                    elide: Text.ElideRight
-                    Layout.fillWidth: true
-                }
-                Tiny { text: String(taskCard.taskData.id).padStart(2, "0") }
-            }
-            RowLayout {
-                Layout.fillWidth: true
-                Label {
-                    text: taskCard.taskData.priority === "ALTA" ? "▲ ALTA" : taskCard.taskData.status
-                    color: taskCard.taskData.priority === "ALTA" ? root.danger : root.textMuted
-                    font.family: "Consolas"; font.pixelSize: 9
-                }
-                Item { Layout.fillWidth: true }
-                Tiny { text: taskCard.taskData.dueText || "Sem prazo" }
-            }
-        }
-    }
-
-    component LeftRail: Panel {
-        implicitWidth: 210
-        ColumnLayout {
-            anchors.fill: parent
-            anchors.margins: 14
-            spacing: 8
-
-            Label { text: "NEXUS //"; color: root.textMain; font.pixelSize: 16; font.bold: true }
-            Label { text: "COMMAND CORE"; color: root.cyan; font.pixelSize: 15; font.bold: true }
-            Tiny { text: "● LOCAL AI ONLINE"; color: root.cyan }
-            Item { Layout.preferredHeight: 10 }
-
-            Repeater {
-                model: ["◉  Hoje", "▦  Demandas", "◇  Memória", "⌁  Arquivos", "↻  Rotinas", "⚙  Configurações"]
-                Button {
-                    Layout.fillWidth: true
-                    implicitHeight: 40
-                    text: modelData
-                    background: Rectangle {
-                        radius: 9
-                        color: index === 0 ? "#14343a" : (parent.hovered ? "#101e23" : "transparent")
-                        border.color: index === 0 ? root.cyanDim : "transparent"
-                    }
-                    contentItem: Label {
-                        text: parent.text
-                        color: index === 0 ? root.textMain : root.textMuted
-                        font.pixelSize: 12
-                        verticalAlignment: Text.AlignVCenter
-                    }
-                }
-            }
-
-            Item { Layout.fillHeight: true }
-
-            Repeater {
-                model: ["CPU // NORMAL", "VOICE // READY", "LOCAL DB // SYNC"]
-                Rectangle {
-                    Layout.fillWidth: true; implicitHeight: 34; radius: 8
-                    color: root.soft; border.color: root.line
-                    Tiny { anchors.centerIn: parent; text: modelData }
-                }
-            }
-
-            Button {
-                Layout.fillWidth: true; implicitHeight: 46
-                text: "+ Nova demanda"
-                onClicked: newTaskDialog.open()
-                background: Rectangle { radius: 10; color: root.cyanDim; border.color: "#33747b" }
-                contentItem: Label { text: parent.text; color: root.textMain; font.bold: true; horizontalAlignment: Text.AlignHCenter; verticalAlignment: Text.AlignVCenter }
-            }
-        }
-    }
-
-    component WorkArea: Item {
-        ColumnLayout {
-            anchors.fill: parent
-            spacing: 12
-
-            Panel {
-                Layout.fillWidth: true
-                implicitHeight: 215
-                ColumnLayout {
-                    anchors.fill: parent; anchors.margins: 16; spacing: 10
-                    RowLayout {
-                        Layout.fillWidth: true
-                        ColumnLayout {
-                            spacing: 2
-                            Label { text: "Boa noite."; color: root.textMain; font.pixelSize: 23; font.bold: true }
-                            Label { text: "Estas são as coisas que merecem sua atenção agora."; color: root.textMuted; font.pixelSize: 12 }
-                        }
-                        Item { Layout.fillWidth: true }
-                        Tiny { text: taskStore.tasks.length + " DEMANDAS" }
-                    }
-                    ScrollView {
-                        Layout.fillWidth: true; Layout.fillHeight: true; clip: true
-                        ScrollBar.vertical.policy: ScrollBar.AlwaysOff
-                        RowLayout {
-                            spacing: 10
-                            Repeater {
-                                model: taskStore.tasks
-                                TaskCard { taskData: modelData; Layout.preferredWidth: 210 }
-                            }
-                        }
-                    }
-                }
-            }
-
-            Panel {
-                Layout.fillWidth: true; Layout.fillHeight: true
-                ColumnLayout {
-                    anchors.fill: parent; anchors.margins: 17; spacing: 12
-                    RowLayout {
-                        Layout.fillWidth: true
-                        ColumnLayout {
-                            spacing: 3
-                            Tiny { text: "DEMANDA ATUAL" }
-                            Label { text: taskStore.selectedTask.title || "Nenhuma demanda"; color: root.textMain; font.pixelSize: 20; font.bold: true }
-                        }
-                        Item { Layout.fillWidth: true }
-                        Rectangle {
-                            implicitWidth: 92; implicitHeight: 28; radius: 8
-                            color: "#10251e"; border.color: "#235744"
-                            Tiny { anchors.centerIn: parent; text: taskStore.selectedTask.status || "—"; color: "#84d7a9" }
-                        }
-                    }
-
-                    RowLayout {
-                        Layout.fillWidth: true; spacing: 10
-                        Repeater {
-                            model: [
-                                {k: "PRAZO", v: taskStore.selectedTask.dueText || "Sem prazo"},
-                                {k: "ANEXOS", v: "0 arquivos"},
-                                {k: "IA", v: "NYRA (Local)"}
-                            ]
-                            Rectangle {
-                                Layout.fillWidth: true; implicitHeight: 64; radius: 10
-                                color: root.soft; border.color: root.line
-                                ColumnLayout {
-                                    anchors.fill: parent; anchors.margins: 10; spacing: 3
-                                    Tiny { text: modelData.k }
-                                    Label { text: modelData.v; color: root.textMain; font.pixelSize: 12 }
-                                }
-                            }
-                        }
-                    }
-
-                    Rectangle {
-                        Layout.fillWidth: true; implicitHeight: 88; radius: 10
-                        color: root.soft; border.color: root.line
-                        ColumnLayout {
-                            anchors.fill: parent; anchors.margins: 12; spacing: 5
-                            Tiny { text: "DESCRIÇÃO" }
-                            Label { text: taskStore.selectedTask.description || "Sem descrição."; color: root.textMuted; wrapMode: Text.WordWrap; Layout.fillWidth: true; font.pixelSize: 12 }
-                        }
-                    }
-
-                    Rectangle {
-                        Layout.fillWidth: true; Layout.fillHeight: true; radius: 10
-                        color: "#0d191d"; border.color: "#24434a"
-                        ColumnLayout {
-                            anchors.fill: parent; anchors.margins: 12; spacing: 8
-                            RowLayout {
-                                Tiny { text: "● ASSISTANT INSIGHT"; color: root.cyan }
-                                Item { Layout.fillWidth: true }
-                                Tiny { text: "LOCAL" }
-                            }
-                            Label {
-                                Layout.fillWidth: true
-                                text: "Eu já tenho o contexto desta demanda localmente. Posso organizar o que está pendente, apontar o próximo passo e conversar com você sem acessar a internet."
-                                color: root.textMuted; wrapMode: Text.WordWrap; font.pixelSize: 12
-                            }
-                            Item { Layout.fillHeight: true }
-                            RowLayout {
-                                Button {
-                                    text: "Analisar agora"
-                                    onClicked: root.assistantText = "Eu começaria separando o que depende de você, o que depende de terceiros e qual é a próxima ação objetiva desta demanda."
-                                }
-                                Button {
-                                    text: "Conversar"
-                                    onClicked: root.assistantText = "Estou ouvindo. Pode falar comigo normalmente."
-                                }
-                                Item { Layout.fillWidth: true }
-                                Button {
-                                    text: taskStore.selectedTask.status === "CONCLUÍDA" ? "Reabrir" : "Concluir"
-                                    enabled: taskStore.selectedTask.id !== undefined
-                                    onClicked: taskStore.toggleDone(taskStore.selectedTask.id)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    component NyraPanel: Panel {
-        implicitWidth: 270
-        ColumnLayout {
-            anchors.fill: parent; anchors.margins: 15; spacing: 10
-            CoreOrb { Layout.alignment: Qt.AlignHCenter; Layout.preferredWidth: 118; Layout.preferredHeight: 118 }
-            Label { text: "NYRA"; color: root.textMain; font.pixelSize: 20; font.bold: true; Layout.alignment: Qt.AlignHCenter }
-            Tiny { text: "PERSONAL LOCAL INTELLIGENCE"; Layout.alignment: Qt.AlignHCenter }
-
-            Rectangle {
-                Layout.fillWidth: true; implicitHeight: 54; radius: 10
-                color: root.soft; border.color: root.line
-                RowLayout {
-                    anchors.fill: parent; anchors.margins: 10
-                    ColumnLayout {
-                        spacing: 2
-                        Tiny { text: "ESTADO // DISPONÍVEL"; color: root.cyan }
-                        Tiny { text: "NETWORK // LOCKED" }
-                    }
-                    Item { Layout.fillWidth: true }
-                    Label { text: "◉"; color: root.cyan; font.pixelSize: 18 }
-                }
-            }
-
-            Rectangle {
-                Layout.fillWidth: true; Layout.fillHeight: true; radius: 10
-                color: root.soft; border.color: root.line
-                ColumnLayout {
-                    anchors.fill: parent; anchors.margins: 12; spacing: 8
-                    Tiny { text: "CONVERSA" }
-                    Label { Layout.fillWidth: true; text: root.assistantText; color: root.textMain; wrapMode: Text.WordWrap; font.pixelSize: 12 }
-                    Item { Layout.fillHeight: true }
-                    Rectangle {
-                        Layout.fillWidth: true; implicitHeight: 92; radius: 9
-                        color: "#0b171b"; border.color: "#1d3940"
-                        ColumnLayout {
-                            anchors.fill: parent; anchors.margins: 10; spacing: 4
-                            Tiny { text: "MEMÓRIA RECENTE" }
-                            Label { text: "• Internet bloqueada por padrão"; color: root.textMuted; font.pixelSize: 10 }
-                            Label { text: "• Pedir autorização por voz"; color: root.textMuted; font.pixelSize: 10 }
-                            Label { text: "• Contexto local persistente"; color: root.textMuted; font.pixelSize: 10 }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    header: Rectangle {
-        height: root.compact ? 58 : 50
-        color: "#080d10"; border.color: root.line
-        RowLayout {
-            anchors.fill: parent; anchors.leftMargin: 18; anchors.rightMargin: 18
-            Label { text: "N.Y.R.A."; color: root.textMain; font.pixelSize: 15; font.bold: true }
-            Tiny { text: "NEURAL YIELDING REASONING ASSISTANT"; visible: !root.compact }
-            Item { Layout.fillWidth: true }
-            Tiny { text: root.compact ? "COMPACT MODE" : "DESKTOP MODE"; color: root.cyan }
-        }
-    }
-
-    StackLayout {
-        anchors.fill: parent
-        anchors.margins: 12
-        currentIndex: root.compact ? 1 : 0
-
-        RowLayout {
-            spacing: 12
-            LeftRail { Layout.preferredWidth: 210; Layout.fillHeight: true }
-            WorkArea { Layout.fillWidth: true; Layout.fillHeight: true }
-            NyraPanel { Layout.preferredWidth: 270; Layout.fillHeight: true }
-        }
-
-        Flickable {
-            clip: true
-            contentWidth: width
-            contentHeight: compactColumn.implicitHeight
-            ScrollBar.vertical: ScrollBar {}
-
-            ColumnLayout {
-                id: compactColumn
-                width: parent.width
-                spacing: 12
-
-                Panel {
-                    Layout.fillWidth: true; implicitHeight: 145
-                    RowLayout {
-                        anchors.fill: parent; anchors.margins: 14; spacing: 14
-                        CoreOrb { Layout.preferredWidth: 110; Layout.preferredHeight: 110 }
-                        ColumnLayout {
-                            Layout.fillWidth: true
-                            Label { text: "NYRA"; color: root.textMain; font.pixelSize: 21; font.bold: true }
-                            Tiny { text: "PERSONAL LOCAL INTELLIGENCE" }
-                            Label { text: root.assistantText; color: root.textMuted; wrapMode: Text.WordWrap; Layout.fillWidth: true; font.pixelSize: 12 }
-                            Tiny { text: "● LOCAL CORE ONLINE  •  NETWORK LOCKED"; color: root.cyan }
-                        }
-                    }
-                }
-
-                Panel {
-                    Layout.fillWidth: true
-                    implicitHeight: Math.min(350, 110 + taskStore.tasks.length * 96)
-                    ColumnLayout {
-                        anchors.fill: parent; anchors.margins: 14; spacing: 8
-                        RowLayout {
-                            Layout.fillWidth: true
-                            Label { text: "Hoje"; color: root.textMain; font.pixelSize: 18; font.bold: true }
-                            Item { Layout.fillWidth: true }
-                            Button { text: "+ Nova"; onClicked: newTaskDialog.open() }
-                        }
-                        ListView {
-                            Layout.fillWidth: true; Layout.fillHeight: true; spacing: 8; clip: true
-                            model: taskStore.tasks
-                            delegate: TaskCard { width: ListView.view.width; taskData: modelData }
-                        }
-                    }
-                }
-
-                Panel {
-                    Layout.fillWidth: true; implicitHeight: 300
-                    ColumnLayout {
-                        anchors.fill: parent; anchors.margins: 14; spacing: 10
-                        Tiny { text: "DEMANDA ATUAL" }
-                        Label { text: taskStore.selectedTask.title || "Nenhuma demanda"; color: root.textMain; font.pixelSize: 19; font.bold: true }
-                        Label { text: taskStore.selectedTask.description || "Sem descrição."; color: root.textMuted; wrapMode: Text.WordWrap; Layout.fillWidth: true; font.pixelSize: 12 }
-                        Rectangle {
-                            Layout.fillWidth: true; Layout.fillHeight: true; radius: 10
-                            color: root.soft; border.color: root.line
-                            Label {
-                                anchors.fill: parent; anchors.margins: 12
-                                text: "NYRA // Posso analisar esta demanda usando apenas o contexto local e sugerir o próximo passo."
-                                color: root.textMuted; wrapMode: Text.WordWrap; font.pixelSize: 12
-                            }
-                        }
-                        RowLayout {
-                            Button { text: "Concluir"; enabled: taskStore.selectedTask.id !== undefined; onClicked: taskStore.toggleDone(taskStore.selectedTask.id) }
-                            Button { text: "Conversar"; onClicked: root.assistantText = "Estou ouvindo." }
-                            Item { Layout.fillWidth: true }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    footer: Rectangle {
-        height: 58
-        color: "#080d10"; border.color: root.line
-        RowLayout {
-            anchors.fill: parent; anchors.leftMargin: 16; anchors.rightMargin: 16; spacing: 10
-            Label { text: "⌁"; color: root.cyan; font.pixelSize: 18 }
-            TextField {
-                Layout.fillWidth: true
-                placeholderText: "Fale ou digite um comando..."
-                color: root.textMain; placeholderTextColor: root.textMuted
-                background: Rectangle { radius: 10; color: root.soft; border.color: root.line }
-                onAccepted: {
-                    if (text.trim().length > 0) {
-                        root.assistantText = "Recebi: “" + text.trim() + "”. O cérebro local será conectado na próxima etapa."
-                        text = ""
-                    }
-                }
-            }
-            Rectangle {
-                width: 40; height: 40; radius: 20
-                color: root.cyanDim; border.color: "#33747b"
-                Label { anchors.centerIn: parent; text: "●"; color: root.cyan; font.pixelSize: 17 }
-            }
-        }
-    }
-
-    Dialog {
-        id: newTaskDialog
-        title: "Nova demanda"
-        modal: true
-        width: Math.min(root.width - 40, 520)
-        x: Math.max(20, (root.width - width) / 2)
-        y: Math.max(20, (root.height - height) / 2)
-        standardButtons: Dialog.Ok | Dialog.Cancel
-
-        onAccepted: {
-            taskStore.addTask(taskTitle.text, taskDescription.text, taskPriority.currentText, taskDue.text)
-            taskTitle.clear(); taskDescription.clear(); taskDue.clear(); taskPriority.currentIndex = 0
-        }
-
-        contentItem: ColumnLayout {
-            spacing: 10
-            TextField { id: taskTitle; Layout.fillWidth: true; placeholderText: "Título" }
-            TextArea { id: taskDescription; Layout.fillWidth: true; Layout.preferredHeight: 100; placeholderText: "Descrição"; wrapMode: TextEdit.WordWrap }
-            RowLayout {
-                Layout.fillWidth: true
-                ComboBox { id: taskPriority; model: ["NORMAL", "ALTA", "BAIXA"]; Layout.preferredWidth: 140 }
-                TextField { id: taskDue; Layout.fillWidth: true; placeholderText: "Prazo (ex.: amanhã 09:00)" }
-            }
-        }
-    }
+ component Mono:Label { color:root.muted; font.family:"Consolas"; font.pixelSize:9; font.letterSpacing:1 }
+ component Panel:Rectangle { color:root.panel; radius:10; border.color:root.line }
+ component CyberButton:Button { id:b; implicitHeight:38; background:Rectangle{radius:7;color:b.down?"#174c55":b.hovered?"#123740":"#0d242b";border.color:b.highlighted?root.cyan:root.line} contentItem:Label{text:b.text;color:b.highlighted?"#7afaff":root.ink;horizontalAlignment:Text.AlignHCenter;verticalAlignment:Text.AlignVCenter;font.pixelSize:11} }
+ component Spark:Canvas { id:s; property var values:[]; implicitHeight:23; onValuesChanged:requestPaint(); onWidthChanged:requestPaint(); onPaint:{var c=getContext("2d");c.reset();c.strokeStyle=root.cyan;c.lineWidth=1.2;c.beginPath();var d=values||[];for(var i=0;i<d.length;i++){var x=i*width/Math.max(1,d.length-1),y=height-2-Math.max(0,Math.min(100,d[i]))/100*(height-4);i?c.lineTo(x,y):c.moveTo(x,y)}c.stroke()} }
+ component Metric:Rectangle { id:m; required property string label; required property string value; required property var history; property string detail:""; Layout.fillWidth:true; implicitHeight:48; radius:7;color:"#071218";border.color:root.line
+  RowLayout{anchors.fill:parent;anchors.margins:7;spacing:6;Rectangle{width:25;height:25;radius:5;color:"#0e2931";Mono{anchors.centerIn:parent;text:m.label.charAt(0);color:root.cyan}}ColumnLayout{spacing:0;Mono{text:m.label+" // "+m.value;color:root.ink;font.pixelSize:8}Mono{text:m.detail;font.pixelSize:7;elide:Text.ElideRight;Layout.maximumWidth:82}}Spark{Layout.fillWidth:true;values:m.history}}
+ }
+ component Orb:Item { id:o; implicitWidth:210;implicitHeight:175;property real phase:0;NumberAnimation on phase{from:0;to:6.283;duration:root.talking?850:7000;loops:Animation.Infinite}
+  Canvas{anchors.fill:parent;onPaint:{var c=getContext("2d"),cx=width/2,cy=height/2,t=o.phase;c.reset();var g=c.createRadialGradient(cx,cy,1,cx,cy,70);g.addColorStop(0,"#efffff");g.addColorStop(.08,"#60f6ff");g.addColorStop(.28,"#0daabd");g.addColorStop(.52,"#073747");g.addColorStop(.78,"#06141b");g.addColorStop(1,"#02060900");c.fillStyle=g;c.beginPath();c.arc(cx,cy,72,0,6.283);c.fill();for(var r=48;r<82;r+=10){c.strokeStyle=r==68?"#43f5fb":"#15798a";c.globalAlpha=.4;c.beginPath();c.arc(cx,cy,r,t*(r%3+1),t*(r%3+1)+3.8);c.stroke()}c.globalAlpha=.75;for(var i=0;i<42;i++){var a=i/42*6.283+t*.3,rr=73+(i%5)*3;c.fillStyle=i%4?"#168898":"#8dffff";c.fillRect(cx+Math.cos(a)*rr,cy+Math.sin(a)*rr,i%4?1:2,i%4?1:2)}c.globalAlpha=.9;c.strokeStyle=root.cyan;c.beginPath();for(var j=0;j<70;j++){var x=7+j*(width-14)/69,amp=root.talking?18+10*Math.sin(j*.7+t*4):3,y=cy+Math.sin(j*.75+t*3)*amp*(.2+.8*Math.sin(j/69*3.14));j?c.lineTo(x,y):c.moveTo(x,y)}c.stroke()}Connections{target:o;function onPhaseChanged(){parent.requestPaint()}}Connections{target:root;function onTalkingChanged(){parent.requestPaint()}}}
+ }
+ component TaskCard:Rectangle { id:t; required property var taskData; property bool selected:taskStore.selectedTask&&taskStore.selectedTask.id===taskData.id;implicitHeight:105;radius:8;color:selected?"#102a32":"#0b1a20";border.width:selected?2:1;border.color:selected?root.cyan:root.line
+  MouseArea{anchors.fill:parent;cursorShape:Qt.PointingHandCursor;onClicked:taskStore.selectTask(t.taskData.id)}ColumnLayout{anchors.fill:parent;anchors.margins:9;Label{text:t.taskData.title;color:root.ink;font.bold:true;font.pixelSize:12;elide:Text.ElideRight;Layout.fillWidth:true}Item{Layout.fillHeight:true}Mono{text:t.taskData.priority;color:t.taskData.priority==="ALTA"?"#ff7580":"#d9be62"}Mono{text:t.taskData.dueText||"Sem prazo"}}
+ }
+ component Hero:Panel { implicitHeight:185;clip:true
+  Canvas{anchors.fill:parent;opacity:.3;onPaint:{var c=getContext("2d");c.reset();for(var i=0;i<35;i++){var h=15+(i*17%64),x=width*.42+i*width*.017;c.fillStyle="#0c3541";c.fillRect(x,height-h-4,8+(i%4)*3,h);if(i%3===0){c.fillStyle="#1eb9c4";c.fillRect(x+3,height-h+8,1,2)}}}}
+  ColumnLayout{anchors.fill:parent;anchors.margins:13;spacing:8;RowLayout{Layout.fillWidth:true;ColumnLayout{spacing:1;Label{text:"☾  Boa noite.";color:root.ink;font.pixelSize:20;font.bold:true}Label{text:"Estas são as coisas que merecem sua atenção agora.";color:root.muted;font.pixelSize:10}}Item{Layout.fillWidth:true}Mono{text:taskStore.tasks.length+" DEMANDAS"}}ListView{Layout.fillWidth:true;Layout.fillHeight:true;orientation:ListView.Horizontal;spacing:8;clip:true;model:taskStore.tasks;delegate:TaskCard{width:185;taskData:modelData}}}
+ }
+ component Detail:Panel { ColumnLayout{anchors.fill:parent;anchors.margins:13;spacing:9
+  RowLayout{Layout.fillWidth:true;ColumnLayout{spacing:1;Mono{text:"DEMANDA ATUAL"}Label{text:taskStore.selectedTask.title||"Nenhuma demanda";color:root.ink;font.pixelSize:18;font.bold:true}}Item{Layout.fillWidth:true}Rectangle{width:82;height:26;radius:13;color:"#0c2d25";border.color:"#1d694f";Mono{anchors.centerIn:parent;text:"● "+(taskStore.selectedTask.status||"—");color:"#5ff5a4"}}}
+  RowLayout{Layout.fillWidth:true;spacing:7;Repeater{model:[{k:"PRAZO",v:taskStore.selectedTask.dueText||"Sem prazo"},{k:"ANEXOS",v:"0 arquivos"},{k:"IA",v:"NYRA (Local)"}];Rectangle{Layout.fillWidth:true;implicitHeight:57;radius:7;color:root.soft;border.color:root.line;ColumnLayout{anchors.fill:parent;anchors.margins:8;Mono{text:modelData.k}Label{text:modelData.v;color:root.ink;font.bold:true;font.pixelSize:10}}}}}
+  Rectangle{Layout.fillWidth:true;implicitHeight:66;radius:7;color:"#071218";border.color:root.line;ColumnLayout{anchors.fill:parent;anchors.margins:8;Mono{text:"DESCRIÇÃO"}Label{Layout.fillWidth:true;text:taskStore.selectedTask.description||"Sem descrição.";color:root.muted;wrapMode:Text.WordWrap;font.pixelSize:10}}}
+  Rectangle{Layout.fillWidth:true;Layout.fillHeight:true;radius:7;color:"#0a191e";border.color:"#1c4650";ColumnLayout{anchors.fill:parent;anchors.margins:9;RowLayout{Layout.fillWidth:true;Mono{text:"✦ ASSISTANT INSIGHT";color:root.cyan}Item{Layout.fillWidth:true}Mono{text:"LOCAL"}}Label{Layout.fillWidth:true;Layout.fillHeight:true;text:"Para concluir esta demanda com mais eficiência, recomendo separar as dependências e priorizar a próxima ação objetiva. Posso comparar os dados quando os arquivos forem enviados.";color:root.muted;wrapMode:Text.WordWrap;font.pixelSize:10}RowLayout{Layout.fillWidth:true;CyberButton{text:"⌁ Analisar agora";highlighted:true;Layout.preferredWidth:165;onClicked:root.say("Eu começaria pelo item com prazo mais próximo e pelas dependências externas.")}CyberButton{text:"Conversar";Layout.fillWidth:true;onClicked:root.say("Estou ouvindo. Pode falar comigo normalmente.")}CyberButton{text:"•••";Layout.preferredWidth:50}}}}
+ }}
+ component LeftPanel:Panel { implicitWidth:220;ColumnLayout{anchors.fill:parent;anchors.margins:11;spacing:6
+  RowLayout{spacing:9;Rectangle{width:42;height:42;radius:21;color:"#06151b";border.color:"#1c7180";Label{anchors.centerIn:parent;text:"▽";color:root.cyan;font.pixelSize:25}}ColumnLayout{spacing:0;Label{text:"NEXUS //";color:root.ink;font.bold:true;font.pixelSize:14}Mono{text:"COMMAND CORE";color:root.cyan}}}Mono{text:"● LOCAL AI ONLINE";color:"#2fffa3"}Rectangle{Layout.fillWidth:true;height:1;color:root.line}
+  Repeater{model:["⌂  Hoje","▤  Demandas","◈  Memória","□  Arquivos","◴  Rotinas","⚙  Configurações"];CyberButton{Layout.fillWidth:true;text:modelData;highlighted:index===0}}
+  CyberButton{Layout.fillWidth:true;text:"+ Nova demanda";highlighted:true;onClicked:newTaskDialog.open()}Item{Layout.fillHeight:true}
+  Metric{label:"CPU";value:Math.round(systemMonitor.cpuPercent)+"%";history:systemMonitor.cpuHistory;detail:"NORMAL"}Metric{label:"GPU";value:systemMonitor.gpuPercent<0?"N/D":Math.round(systemMonitor.gpuPercent)+"%";history:systemMonitor.gpuHistory;detail:systemMonitor.gpuName}Metric{label:"RAM";value:Math.round(systemMonitor.ramPercent)+"%";history:systemMonitor.ramHistory;detail:"WINDOWS"}Metric{label:"VOICE";value:root.talking?"TALKING":"READY";history:systemMonitor.voiceHistory;detail:"NYRA OUTPUT"}Metric{label:"LOCAL DB";value:systemMonitor.dbSize;history:[42,42,43,43,44,44];detail:"SQLITE // SYNC"}
+ }}
+ component NyraPanel:Panel { implicitWidth:300;ColumnLayout{anchors.fill:parent;anchors.margins:10;spacing:7
+  RowLayout{Layout.fillWidth:true;ColumnLayout{spacing:0;Label{text:"NYRA";color:root.ink;font.pixelSize:19}Mono{text:"PERSONAL INTELLIGENCE"}}Item{Layout.fillWidth:true}Mono{text:"☷";color:root.ink;font.pixelSize:15}}Orb{Layout.fillWidth:true;Layout.preferredHeight:170}
+  Rectangle{Layout.fillWidth:true;implicitHeight:45;radius:7;color:"#071319";border.color:root.line;RowLayout{anchors.fill:parent;anchors.margins:8;ColumnLayout{spacing:0;Mono{text:root.talking?"ESTADO // FALANDO":"ESTADO // DISPONÍVEL";color:root.cyan}Mono{text:"NETWORK // LOCKED"}}Item{Layout.fillWidth:true}Label{text:"▥▃▆▂▇";color:root.cyan;font.family:"Consolas"}}}
+  Rectangle{Layout.fillWidth:true;implicitHeight:78;radius:7;color:"#0a1920";border.color:root.line;RowLayout{anchors.fill:parent;anchors.margins:8;Rectangle{width:28;height:28;radius:14;color:"#0b313c";border.color:root.cyan;Label{anchors.centerIn:parent;text:"◉";color:root.cyan}}Label{Layout.fillWidth:true;text:root.assistantText;color:root.ink;wrapMode:Text.WordWrap;font.pixelSize:10}}}
+  Rectangle{Layout.fillWidth:true;implicitHeight:30;radius:6;color:"#2b1118";border.color:"#632632";RowLayout{anchors.fill:parent;anchors.margins:7;Mono{text:"▣ NETWORK // LOCKED";color:"#ff5968"}Item{Layout.fillWidth:true}Mono{text:"Internet bloqueada";color:"#bd6570"}}}
+  RowLayout{Layout.fillWidth:true;Mono{text:"MEMÓRIA RECENTE";color:root.ink}Item{Layout.fillWidth:true}Mono{text:"Ver tudo"}}
+  Repeater{model:["Você pediu para priorizar fornecedores com histórico de entrega.","Preferência: respostas objetivas e tabelas comparativas.","Projeto 3DRN Store em andamento."];RowLayout{Layout.fillWidth:true;Rectangle{width:23;height:23;radius:4;color:"#0b2027";Mono{anchors.centerIn:parent;text:"□"}}Label{Layout.fillWidth:true;text:modelData;color:root.muted;wrapMode:Text.WordWrap;font.pixelSize:8}}}Item{Layout.fillHeight:true}Mono{Layout.fillWidth:true;text:systemMonitor.gpuName+"\n"+systemMonitor.gpuStatus;wrapMode:Text.WordWrap;font.pixelSize:7}
+ }}
+ function say(m){assistantText=m;talking=true;systemMonitor.setSpeaking(true);speech.restart()}
+ Timer{id:speech;interval:3600;onTriggered:{root.talking=false;systemMonitor.setSpeaking(false)}}
+ header:Rectangle{height:50;color:"#050b0f";border.color:root.line;RowLayout{anchors.fill:parent;anchors.leftMargin:14;anchors.rightMargin:14;Label{text:"N.Y.R.A.";color:root.ink;font.bold:true}Mono{text:"NEURAL YIELDING REASONING ASSISTANT";visible:!root.compact}Item{Layout.fillWidth:true}CyberButton{implicitWidth:145;implicitHeight:29;text:root.compactOverride?"▣ USAR DESKTOP":"▦ MODO COMPACTO";highlighted:root.compactOverride;onClicked:root.compactOverride=!root.compactOverride}Mono{text:root.compact?"COMPACT":"DESKTOP";color:root.cyan;visible:root.width>850}}}
+ StackLayout{anchors.fill:parent;anchors.margins:8;currentIndex:root.compact?1:0
+  RowLayout{spacing:8;LeftPanel{Layout.preferredWidth:220;Layout.fillHeight:true}ColumnLayout{spacing:8;Layout.fillWidth:true;Layout.fillHeight:true;Hero{Layout.fillWidth:true;Layout.preferredHeight:185}Detail{Layout.fillWidth:true;Layout.fillHeight:true}}NyraPanel{Layout.preferredWidth:300;Layout.fillHeight:true}}
+  Flickable{clip:true;contentWidth:width;contentHeight:cc.implicitHeight;ScrollBar.vertical:ScrollBar{}
+   ColumnLayout{id:cc;width:parent.width;spacing:8
+   Panel{Layout.fillWidth:true;implicitHeight:145;RowLayout{anchors.fill:parent;anchors.margins:10;Orb{Layout.preferredWidth:180;Layout.preferredHeight:125}ColumnLayout{Layout.fillWidth:true;Label{text:"NYRA // "+(root.talking?"FALANDO":"DISPONÍVEL");color:root.ink;font.pixelSize:17;font.bold:true}Mono{text:"● LOCAL AI ONLINE // NET LOCKED";color:root.cyan}Label{Layout.fillWidth:true;text:root.assistantText;color:root.muted;wrapMode:Text.WordWrap;font.pixelSize:10}}}}
+   Panel{Layout.fillWidth:true;implicitHeight:120;GridLayout{anchors.fill:parent;anchors.margins:9;columns:root.width<800?2:3;Metric{label:"CPU";value:Math.round(systemMonitor.cpuPercent)+"%";history:systemMonitor.cpuHistory}Metric{label:"GPU";value:systemMonitor.gpuPercent<0?"N/D":Math.round(systemMonitor.gpuPercent)+"%";history:systemMonitor.gpuHistory}Metric{label:"RAM";value:Math.round(systemMonitor.ramPercent)+"%";history:systemMonitor.ramHistory}}}
+   Hero{Layout.fillWidth:true;Layout.preferredHeight:185}Detail{Layout.fillWidth:true;Layout.preferredHeight:420}NyraPanel{Layout.fillWidth:true;Layout.preferredHeight:450}
+  }}
+ }
+ footer:Rectangle{height:56;color:"#050c10";border.color:root.line;RowLayout{anchors.fill:parent;anchors.margins:7;Label{text:"▥";color:root.cyan;font.pixelSize:18}TextField{id:cmd;Layout.fillWidth:true;placeholderText:"> Fale ou digite um comando...";color:root.ink;placeholderTextColor:root.muted;background:Rectangle{radius:8;color:"#071318";border.color:root.line}onAccepted:{if(text.trim()){root.say("Recebi: “"+text.trim()+"”.");text=""}}}Mono{text:"ESC para cancelar";visible:!root.compact}CyberButton{implicitWidth:44;text:root.talking?"■":"●";highlighted:true;onClicked:root.talking?(root.talking=false,systemMonitor.setSpeaking(false)):root.say("Estou ouvindo. Pode falar comigo normalmente.")}}}
+ Dialog{id:newTaskDialog;title:"Nova demanda";modal:true;width:Math.min(root.width-40,520);anchors.centerIn:Overlay.overlay;standardButtons:Dialog.Ok|Dialog.Cancel;onAccepted:{taskStore.addTask(taskTitle.text,taskDescription.text,taskPriority.currentText,taskDue.text);taskTitle.clear();taskDescription.clear();taskDue.clear()}contentItem:ColumnLayout{spacing:8;TextField{id:taskTitle;Layout.fillWidth:true;placeholderText:"Título"}TextArea{id:taskDescription;Layout.fillWidth:true;Layout.preferredHeight:90;placeholderText:"Descrição";wrapMode:TextEdit.WordWrap}RowLayout{ComboBox{id:taskPriority;model:["NORMAL","ALTA","BAIXA"]}TextField{id:taskDue;Layout.fillWidth:true;placeholderText:"Prazo"}}}}
 }
