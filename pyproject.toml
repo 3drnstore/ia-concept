@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nyra"
-version = "0.1.0"
+version = "0.2.0"
 description = "N.Y.R.A. — Neural Yielding Reasoning Assistant"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -23,4 +23,4 @@ package-dir = {"" = "src"}
 where = ["src"]
 
 [tool.setuptools.package-data]
-nyra = ["ui/**/*.qml"]
+nyra = ["ui/**/*.qml", "assets/**/*"]
