@@ -8,6 +8,7 @@ from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 
 from .task_store import TaskStore
+from .system_monitor import SystemMonitor
 
 
 def main() -> int:
@@ -17,7 +18,9 @@ def main() -> int:
 
     engine = QQmlApplicationEngine()
     task_store = TaskStore()
+    system_monitor = SystemMonitor()
     engine.rootContext().setContextProperty("taskStore", task_store)
+    engine.rootContext().setContextProperty("systemMonitor", system_monitor)
 
     qml_path = Path(__file__).resolve().parent / "ui" / "Main.qml"
     engine.load(QUrl.fromLocalFile(str(qml_path)))
