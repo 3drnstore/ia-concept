@@ -7,6 +7,7 @@ from PySide6.QtCore import QUrl
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtQml import QQmlApplicationEngine
 
+from .ai_core import AiCore
 from .task_store import TaskStore
 from .system_monitor import SystemMonitor
 
@@ -19,8 +20,10 @@ def main() -> int:
     engine = QQmlApplicationEngine()
     task_store = TaskStore()
     system_monitor = SystemMonitor()
+    ai_core = AiCore()
     engine.rootContext().setContextProperty("taskStore", task_store)
     engine.rootContext().setContextProperty("systemMonitor", system_monitor)
+    engine.rootContext().setContextProperty("aiCore", ai_core)
 
     qml_path = Path(__file__).resolve().parent / "ui" / "NyraShell.qml"
     engine.load(QUrl.fromLocalFile(str(qml_path)))
