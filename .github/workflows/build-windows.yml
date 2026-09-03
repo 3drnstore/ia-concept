@@ -24,7 +24,7 @@ jobs:
           python -m pip install -e . pyinstaller
       - name: Validate QML
         shell: pwsh
-        run: pyside6-qmllint src/nyra/ui/NyraShell.qml
+        run: pyside6-qmllint src/nyra/ui/ConceptShell.qml
       - name: Build Nyra
         shell: pwsh
         run: |
