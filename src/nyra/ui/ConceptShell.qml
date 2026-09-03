@@ -66,14 +66,14 @@ ApplicationWindow {
     component Orb: Item {
         id:o; property real phase:0; implicitWidth:300; implicitHeight:225
         NumberAnimation on phase { from:0; to:6.283; duration:root.talking?820:6500; loops:Animation.Infinite }
-        Canvas { anchors.fill:parent
+        Canvas { id:orbCanvas; anchors.fill:parent
             onPaint:{
                 var c=getContext("2d"),cx=width/2,cy=height/2,t=o.phase;c.reset();
                 var g=c.createRadialGradient(cx,cy,2,cx,cy,92);g.addColorStop(0,"#ffffff");g.addColorStop(.05,"#bffcff");g.addColorStop(.13,"#34eff9");g.addColorStop(.28,"#0ab5c8");g.addColorStop(.5,"#0a5364");g.addColorStop(.72,"#071d27");g.addColorStop(1,"#02070b00");c.fillStyle=g;c.beginPath();c.arc(cx,cy,92,0,6.283);c.fill();
                 for(var r=54;r<=100;r+=9){c.strokeStyle=(r===81||r===90)?"#5ef8ff":"#16778c";c.globalAlpha=(r===81||r===90)?.72:.32;c.lineWidth=(r===81||r===90)?1.7:1;c.beginPath();c.arc(cx,cy,r,t*(r%4+1),t*(r%4+1)+4.3);c.stroke()}
                 c.globalAlpha=.8;for(var i=0;i<74;i++){var a=i/74*6.283+t*.2,rr=94+(i%7)*3;c.fillStyle=i%6===0?"#b6ffff":"#1594a7";c.fillRect(cx+Math.cos(a)*rr,cy+Math.sin(a)*rr,i%6===0?2:1,i%6===0?2:1)}
             }
-            Connections { target:o; function onPhaseChanged(){ parent.requestPaint() } }
+            Connections { target:o; function onPhaseChanged(){ orbCanvas.requestPaint() } }
         }
         Wave { anchors.left:parent.left; anchors.right:parent.right; anchors.verticalCenter:parent.verticalCenter }
     }
@@ -158,7 +158,7 @@ ApplicationWindow {
                 // RIGHT NYRA
                 Rectangle { Layout.preferredWidth:390; Layout.fillHeight:true; radius:14; color:"#08141b"; border.color:root.line
                     ColumnLayout{anchors.fill:parent;anchors.margins:16;spacing:10
-                        RowLayout{Layout.fillWidth:true;ColumnLayout{spacing:0;Label{text:"NYRA";color:root.ink;font.pixelSize:24;letterSpacing:2}Mono{text:"PERSONAL INTELLIGENCE"}}Item{Layout.fillWidth:true}CButton{text:"⚙";Layout.preferredWidth:34;Layout.preferredHeight:30}}
+                        RowLayout{Layout.fillWidth:true;ColumnLayout{spacing:0;Label{text:"NYRA";color:root.ink;font.pixelSize:24;font.letterSpacing:2}Mono{text:"PERSONAL INTELLIGENCE"}}Item{Layout.fillWidth:true}CButton{text:"⚙";Layout.preferredWidth:34;Layout.preferredHeight:30}}
                         Orb{Layout.fillWidth:true;Layout.preferredHeight:220}
                         Rectangle{Layout.fillWidth:true;implicitHeight:50;radius:8;color:"#07131a";border.color:root.line;RowLayout{anchors.fill:parent;anchors.margins:10;Mono{text:"●  ESTADO // DISPONÍVEL";color:root.green}Item{Layout.fillWidth:true}Wave{width:108;active:root.talking}}}
                         Rectangle{Layout.fillWidth:true;implicitHeight:98;radius:9;color:"#0b1a22";border.color:root.line;RowLayout{anchors.fill:parent;anchors.margins:11;Rectangle{width:34;height:34;radius:17;color:"#0d3040";border.color:root.cyan;Mono{anchors.centerIn:parent;text:"◉";color:root.cyan}}Label{Layout.fillWidth:true;text:root.assistantText;color:root.ink;font.pixelSize:11;wrapMode:Text.WordWrap}Mono{text:"22:42";font.pixelSize:7}}}
@@ -194,7 +194,9 @@ ApplicationWindow {
                 }
                 Rectangle{Layout.fillWidth:true;implicitHeight:530;radius:18;color:"#09151b";border.color:root.line;ColumnLayout{anchors.fill:parent;anchors.margins:20;spacing:12;Mono{text:"NAVIGATION";color:root.ink}Repeater{model:[{n:"◉ Hoje",c:"07"},{n:"▦ Demandas",c:"12"},{n:"◇ Memória",c:""},{n:"⌁ Arquivos",c:""},{n:"↻ Rotinas",c:""}];Rectangle{Layout.fillWidth:true;implicitHeight:58;radius:10;color:index===0?"#10292c":"transparent";border.color:index===0?"#396e40":"transparent";RowLayout{anchors.fill:parent;anchors.margins:12;Label{text:modelData.n;color:root.ink;font.pixelSize:15}Item{Layout.fillWidth:true}Mono{text:modelData.c;color:root.ink;font.pixelSize:13}}}}Item{Layout.preferredHeight:3}Mono{text:"SYSTEM";color:root.ink}Repeater{model:["CPU // NORMAL","VOICE // READY","LOCAL DB // SYNC"];Rectangle{Layout.fillWidth:true;implicitHeight:52;radius:9;color:"#08141a";border.color:root.line;Mono{anchors.verticalCenter:parent.verticalCenter;anchors.left:parent.left;anchors.leftMargin:12;text:modelData;color:root.ink}}}CButton{Layout.fillWidth:true;text:"＋ Nova demanda";accent:true}}
                 }
+                }
                 Rectangle{Layout.fillWidth:true;implicitHeight:545;radius:18;color:"#09151b";border.color:root.line;ColumnLayout{anchors.fill:parent;anchors.margins:20;spacing:12;Mono{text:"FOCUS // HOJE"}Label{text:"Boa noite.";color:root.ink;font.pixelSize:26;font.bold:true}Label{text:"Estas são as coisas que merecem sua atenção agora.";color:root.muted;font.pixelSize:14;wrapMode:Text.WordWrap;Layout.fillWidth:true}Mono{text:"PRIORIDADE GERAL";Layout.alignment:Qt.AlignHCenter}Label{text:"02 críticas · 03 normais";color:root.ink;font.pixelSize:16}Repeater{model:[{t:"Cotação Hospital",s:"▲ PRIORIDADE ALTA",n:"01"},{t:"3DRN Store",s:"◉ EM ANDAMENTO",n:"02"},{t:"PsicoGestão",s:"○ AGUARDANDO",n:"03"},{t:"Organizar arquivos",s:"◇ SUGESTÃO DA IA",n:"04"}];Rectangle{Layout.fillWidth:true;implicitHeight:92;radius:11;color:index===0?"#102a2c":"#08141a";border.color:index===0?"#3b7744":root.line;ColumnLayout{anchors.fill:parent;anchors.margins:12;RowLayout{Layout.fillWidth:true;Label{text:modelData.t;color:root.ink;font.pixelSize:17;font.bold:true}Item{Layout.fillWidth:true}Mono{text:modelData.n}}Mono{text:modelData.s}}}}
+                }
                 }
                 Rectangle{Layout.fillWidth:true;implicitHeight:420;radius:18;color:"#09151b";border.color:root.line;ColumnLayout{anchors.fill:parent;anchors.margins:20;spacing:12;Mono{text:"ACTIVE OBJECT"}RowLayout{Layout.fillWidth:true;Label{text:"Cotação Hospital";color:root.ink;font.pixelSize:22;font.bold:true}Item{Layout.fillWidth:true}Rectangle{width:58;height:36;radius:9;color:"#0a171d";border.color:root.line;Mono{anchors.centerIn:parent;text:"ATIVA"}}Rectangle{width:58;height:36;radius:9;color:"#0a171d";border.color:root.line;Mono{anchors.centerIn:parent;text:"ALTA"}}}Label{text:"Analisar se os materiais solicitados são\ncompatíveis antes de decidir participação.";color:root.muted;font.pixelSize:15;wrapMode:Text.WordWrap}Repeater{model:[{k:"PRAZO",v:"Hoje"},{k:"ANEXOS",v:"3 arquivos"},{k:"IA",v:"Contexto carregado"}];Rectangle{Layout.fillWidth:true;implicitHeight:78;radius:10;color:"#08141a";border.color:root.line;ColumnLayout{anchors.fill:parent;anchors.margins:12;Mono{text:modelData.k}Label{text:modelData.v;color:root.ink;font.pixelSize:14}}}}}
                 Item{Layout.preferredHeight:12}
