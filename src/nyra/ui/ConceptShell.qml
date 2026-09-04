@@ -52,11 +52,31 @@ ApplicationWindow {
             compactMode = false; width = Math.max(1180, savedW); height = Math.max(760, savedH)
         }
     }
-    function say(t) { assistantText=t; talking=true; systemMonitor.setSpeaking(true); talkTimer.restart() }
+    function say(t) { assistantText=t; localVoice.speak(t) }
     function greeting(){var h=now.getHours();return h<12?"Bom dia.":h<18?"Boa tarde.":"Boa noite."}
     function skyGlyph(){var h=now.getHours();return h>=6&&h<18?"sun":"moon"}
-    function submitCommand(){var t=commandInput.text.trim();if(!t)return;commandInput.clear();assistantText="Comando registrado: "+t;talking=true;systemMonitor.setSpeaking(true);talkTimer.restart()}
-    Timer { id:talkTimer; interval:3200; onTriggered:{ talking=false; systemMonitor.setSpeaking(false) } }
+    function sendText(t) {
+        if (!t.trim() || aiCore.busy) return
+        localVoice.stop()
+        assistantText = "Pensando…"
+        aiCore.sendMessage(t)
+    }
+    function submitCommand(){var t=commandInput.text.trim();if(!t || aiCore.busy)return;commandInput.clear();sendText(t)}
+    Connections {
+        target: aiCore
+        function onResponseReady(text) { root.say(text) }
+        function onErrorOccurred(message) { root.assistantText = message }
+    }
+    Connections {
+        target: localVoice
+        function onSpeakingChanged() { root.talking=localVoice.speaking; systemMonitor.setSpeaking(root.talking) }
+        function onChanged() { if (!localVoice.microphoneAllowed) audioMonitor.setListening(false) }
+    }
+    onClosing: function(close) {
+        if (aiCore.busy) { close.accepted=false; assistantText="Aguarde a resposta da IA antes de fechar." }
+    }
+    onCurrentSectionChanged: if (currentSection === "Configurações") { deviceSettings.open(); currentSection="Hoje" }
+
 
     component Mono: Label { color:root.muted; font.family:"Consolas"; font.pixelSize:10; font.letterSpacing:1.05 }
     component Panel: Rectangle {
@@ -72,6 +92,13 @@ ApplicationWindow {
             Rectangle { visible:b.accent && b.leftAligned; width:3; radius:2; color:root.cyan; anchors.left:parent.left; anchors.top:parent.top; anchors.bottom:parent.bottom }
         }
         contentItem: Label { text:b.text; color:b.accent?"#d5fdff":root.ink; font.pixelSize:12; leftPadding:b.leftAligned?18:0; horizontalAlignment:b.leftAligned?Text.AlignLeft:Text.AlignHCenter; verticalAlignment:Text.AlignVCenter }
+    }
+    component DeviceSwitch: Switch {
+        id: toggle
+        contentItem: Text { text:toggle.text; color:root.ink; leftPadding:52; verticalAlignment:Text.AlignVCenter; wrapMode:Text.WordWrap }
+        indicator: Rectangle { x:0; anchors.verticalCenter:parent.verticalCenter; width:42;height:24;radius:12;color:toggle.checked?"#286477":"#153341";border.color:"#4b8598"
+            Rectangle{x:toggle.checked?21:3;y:3;width:18;height:18;radius:9;color:toggle.checked?"#b4f4ff":"#86aab7"}
+        }
     }
     component CField: TextField{color:root.ink;placeholderTextColor:"#78909a";font.family:"OCR A Extended";selectionColor:root.cyan2;background:Rectangle{radius:7;color:"#d0091b24";border.width:1;border.color:"#6241a9ba";Rectangle{anchors.fill:parent;anchors.margins:2;radius:5;color:"transparent";border.width:2;border.color:"#1119e7f3"}}}
     component CArea: TextArea{color:root.ink;placeholderTextColor:"#78909a";font.family:"OCR A Extended";selectionColor:root.cyan2;wrapMode:TextEdit.WordWrap;background:Rectangle{radius:7;color:"#d0091b24";border.width:1;border.color:"#6241a9ba";Rectangle{anchors.fill:parent;anchors.margins:2;radius:5;color:"transparent";border.width:2;border.color:"#1119e7f3"}}}
@@ -162,7 +189,7 @@ ApplicationWindow {
             Item { Layout.fillWidth:true }
             Button{Layout.preferredWidth:34;Layout.preferredHeight:30;background:Rectangle{color:parent.hovered?"#4a18313b":"transparent";radius:5}contentItem:Label{text:"−";color:"#aebfc6";font.pixelSize:17;horizontalAlignment:Text.AlignHCenter;verticalAlignment:Text.AlignVCenter}onClicked:root.showMinimized()}
             Button{Layout.preferredWidth:34;Layout.preferredHeight:30;background:Rectangle{color:parent.hovered?"#4a18313b":"transparent";radius:5}contentItem:Label{text:"□";color:"#aebfc6";font.pixelSize:16;horizontalAlignment:Text.AlignHCenter;verticalAlignment:Text.AlignVCenter}onClicked:root.toggleCompact()}
-            Button{Layout.preferredWidth:34;Layout.preferredHeight:30;background:Rectangle{color:parent.hovered?"#7cff4050":"transparent";radius:5}contentItem:Label{text:"×";color:"#aebfc6";font.pixelSize:19;horizontalAlignment:Text.AlignHCenter;verticalAlignment:Text.AlignVCenter}onClicked:Qt.quit()}
+            Button{Layout.preferredWidth:34;Layout.preferredHeight:30;background:Rectangle{color:parent.hovered?"#7cff4050":"transparent";radius:5}contentItem:Label{text:"×";color:"#aebfc6";font.pixelSize:19;horizontalAlignment:Text.AlignHCenter;verticalAlignment:Text.AlignVCenter}onClicked:root.close()}
         }
         DragHandler { target:null; onActiveChanged:if(active)root.startSystemMove() }
     }
@@ -180,7 +207,7 @@ ApplicationWindow {
                             }
                             ColumnLayout{spacing:0;Label{text:"NEXUS //";color:root.ink;font.bold:true;font.pixelSize:17}Label{text:"COMMAND CORE";color:root.ink;font.pixelSize:16}}
                         }
-                        Mono{text:"●  LOCAL AI ONLINE";color:root.green}
+                        Mono{text:"●  LOCAL AI "+aiCore.status;color:aiCore.status==="OFFLINE"?root.muted:root.green}
                         Item{Layout.preferredHeight:4}
                         Repeater{model:[{t:"Hoje",i:"home"},{t:"Demandas",i:"tasks"},{t:"Memória",i:"brain"},{t:"Arquivos",i:"folder"},{t:"Rotinas",i:"clock"},{t:"Configurações",i:"gear"}];Item{Layout.fillWidth:true;implicitHeight:42;Rectangle{anchors.fill:parent;radius:8;color:root.currentSection===modelData.t?"#a6162b35":"transparent";Rectangle{visible:root.currentSection===modelData.t;anchors.fill:parent;anchors.margins:2;radius:6;color:"transparent";border.width:3;border.color:"#1819e7f3"}Rectangle{visible:root.currentSection===modelData.t;width:3;radius:2;color:root.cyan;anchors.left:parent.left;anchors.top:parent.top;anchors.bottom:parent.bottom}RowLayout{anchors.fill:parent;anchors.leftMargin:14;spacing:12;Glyph{kind:modelData.i;stroke:root.currentSection===modelData.t?root.cyan:"#9db0ba";Layout.preferredWidth:18;Layout.preferredHeight:18}Label{text:modelData.t;color:root.currentSection===modelData.t?root.ink:"#bdcbd1";font.pixelSize:12}Item{Layout.fillWidth:true}}MouseArea{anchors.fill:parent;cursorShape:Qt.PointingHandCursor;onClicked:root.currentSection=modelData.t}}}}
                         Item{Layout.preferredHeight:4}
@@ -224,7 +251,7 @@ ApplicationWindow {
                         RowLayout{Layout.fillWidth:true;ColumnLayout{spacing:0;Label{text:"NYRA";color:root.ink;font.pixelSize:24;font.letterSpacing:2}Mono{text:"PERSONAL INTELLIGENCE"}}Item{Layout.fillWidth:true}CButton{Layout.preferredWidth:38;Layout.preferredHeight:34;Glyph{anchors.centerIn:parent;width:18;height:18;kind:"sliders";stroke:"#9fb5bf"}onClicked:root.currentSection="Configurações"}}
                         Orb{Layout.fillWidth:true;Layout.preferredHeight:220}
                         Rectangle{Layout.fillWidth:true;implicitHeight:50;radius:8;color:"#8607131a";border.color:"#3b31515b";RowLayout{anchors.fill:parent;anchors.margins:10;Rectangle{width:7;height:7;radius:4;color:root.listening?root.green:root.cyan}Mono{text:"ESTADO // ";color:"#a8bbc3"}Mono{text:root.talking?"FALANDO":root.listening?"ESCUTANDO":"DISPONÍVEL";color:root.orbColor}Item{Layout.fillWidth:true}Wave{width:108;active:true}}}
-                        Rectangle{Layout.fillWidth:true;implicitHeight:98;radius:9;color:"#8f0b1a22";border.color:"#3b31515b";RowLayout{anchors.fill:parent;anchors.margins:11;Rectangle{width:48;height:48;radius:24;color:"#06151c";Image{anchors.fill:parent;anchors.margins:2;source:"../assets/nyra-orb.png";fillMode:Image.PreserveAspectCrop;smooth:true}}Label{Layout.fillWidth:true;text:root.assistantText;color:root.ink;font.pixelSize:11;wrapMode:Text.WordWrap}Mono{text:"22:42";font.pixelSize:7}}}
+                        Rectangle{Layout.fillWidth:true;implicitHeight:98;radius:9;color:"#8f0b1a22";border.color:"#3b31515b";RowLayout{anchors.fill:parent;anchors.margins:11;Rectangle{width:48;height:48;radius:24;color:"#06151c";Image{anchors.fill:parent;anchors.margins:2;source:"../assets/nyra-orb.png";fillMode:Image.PreserveAspectCrop;smooth:true}}Label{Layout.fillWidth:true;text:root.assistantText;color:root.ink;font.pixelSize:11;wrapMode:Text.WordWrap;maximumLineCount:4;elide:Text.ElideRight;MouseArea{anchors.fill:parent;cursorShape:Qt.PointingHandCursor;onClicked:responseDialog.open()}}Mono{text:"22:42";font.pixelSize:7}}}
                         Rectangle{Layout.fillWidth:true;implicitHeight:36;radius:7;color:root.networkUnlocked?"#102b25":"#2b1118";border.color:root.networkUnlocked?"#28725a":"#6b2632";RowLayout{anchors.fill:parent;anchors.margins:8;Mono{text:"▣  NETWORK // "+(root.networkUnlocked?"UNLOCKED":"LOCKED");color:root.networkUnlocked?root.green:root.red}Item{Layout.fillWidth:true}Mono{text:root.networkUnlocked?"Internet autorizada":"Internet bloqueada";color:root.networkUnlocked?"#71dca6":"#c06671"}Switch{checked:root.networkUnlocked;onToggled:root.networkUnlocked=checked}}}
                         RowLayout{Layout.fillWidth:true;Mono{text:"MEMÓRIA RECENTE";color:root.ink}Item{Layout.fillWidth:true}Mono{text:"Ver tudo"}}
                         Repeater{model:["Você pediu para priorizar fornecedores\ncom histórico de entrega.","Preferência: Respostas objetivas e com\ntabelas comparativas.","Projeto 3DRN Store em andamento.\nFoco em automação."];RowLayout{Layout.fillWidth:true;Rectangle{width:28;height:28;radius:5;color:"#0c222b";Mono{anchors.centerIn:parent;text:"□"}}Label{Layout.fillWidth:true;text:modelData;color:root.muted;font.pixelSize:9;wrapMode:Text.WordWrap}Mono{text:index===0?"22:10":index===1?"21:47":"Ontem";font.pixelSize:7}}}
@@ -236,7 +263,7 @@ ApplicationWindow {
             Rectangle{id:commandDock;anchors.left:parent.left;anchors.right:parent.right;anchors.bottom:parent.bottom;height:76;radius:12;border.width:1;border.color:"#5a34717e";gradient:Gradient{GradientStop{position:0;color:"#d0143543"}GradientStop{position:.18;color:"#c00c2632"}GradientStop{position:1;color:"#d0061821"}}
                 Rectangle{anchors.fill:parent;anchors.margins:2;radius:10;color:"transparent";border.width:1;border.color:"#3024dbea"}
                 RowLayout{anchors.fill:parent;spacing:0
-                    RowLayout{Layout.fillWidth:true;Layout.fillHeight:true;Layout.leftMargin:26;Layout.rightMargin:18;spacing:15;Item{Layout.preferredWidth:34;Layout.preferredHeight:36;Wave{anchors.fill:parent;active:true}MouseArea{anchors.fill:parent;cursorShape:Qt.PointingHandCursor;onClicked:root.submitCommand()}}Rectangle{Layout.preferredWidth:1;Layout.preferredHeight:42;color:"#8119e7f3"}TextField{id:commandInput;Layout.fillWidth:true;placeholderText:"> Fale ou digite um comando...";color:root.ink;placeholderTextColor:"#8299a3";font.pixelSize:14;background:Item{} onAccepted:root.submitCommand()}Rectangle{Layout.preferredWidth:1;Layout.preferredHeight:30;color:"#303f6470"}Mono{text:root.listening?"MIC ATIVO":"ESC para cancelar";color:root.listening?root.green:root.muted}Item{id:micControl;Layout.preferredWidth:82;Layout.preferredHeight:66;Canvas{id:micDots;anchors.fill:parent;scale:1+(audioMonitor?audioMonitor.level:0)*.18;Behavior on scale{NumberAnimation{duration:70}}opacity:root.listening ? .95 : .45;RotationAnimation on rotation{from:0;to:360;duration:root.listening?2200:7000;loops:Animation.Infinite;running:true}onPaint:{var c=getContext("2d");c.reset();c.fillStyle=root.orbColor;for(var i=0;i<12;i++){var a=i/12*6.283,r=30+(i%3)*3;c.globalAlpha=.12+(i%4)*.08;c.beginPath();c.arc(width/2+Math.cos(a)*r,i%2?height/2+Math.sin(a)*r:height/2+Math.sin(a)*(r+4),i%4===0?2:1,0,6.283);c.fill()}}Rectangle{anchors.centerIn:parent;width:60;height:60;radius:30;color:"#76103442";border.width:1;border.color:root.orbColor;Rectangle{anchors.centerIn:parent;width:40;height:40;radius:20;color:root.listening?"#c21c6854":"#c20a5363";border.width:1;border.color:root.orbColor;Glyph{anchors.centerIn:parent;width:20;height:20;kind:"mic";stroke:"#d5ffff"}}}Wave{anchors.left:parent.left;anchors.right:parent.right;anchors.verticalCenter:parent.verticalCenter;height:22;active:root.listening;z:-1}MouseArea{anchors.fill:parent;cursorShape:Qt.PointingHandCursor;onClicked:audioMonitor.setListening(!root.listening)}}CButton{text:"⋮";Layout.preferredWidth:44;Layout.preferredHeight:44}}}
+                    RowLayout{Layout.fillWidth:true;Layout.fillHeight:true;Layout.leftMargin:26;Layout.rightMargin:18;spacing:15;Item{Layout.preferredWidth:34;Layout.preferredHeight:36;Wave{anchors.fill:parent;active:true}MouseArea{anchors.fill:parent;cursorShape:Qt.PointingHandCursor;onClicked:root.submitCommand()}}Rectangle{Layout.preferredWidth:1;Layout.preferredHeight:42;color:"#8119e7f3"}TextField{id:commandInput;Layout.fillWidth:true;placeholderText:"> Fale ou digite um comando...";color:root.ink;placeholderTextColor:"#8299a3";font.pixelSize:14;background:Item{} onAccepted:root.submitCommand()}Rectangle{Layout.preferredWidth:1;Layout.preferredHeight:30;color:"#303f6470"}Mono{text:root.listening?"MIC ATIVO":"ESC para cancelar";color:root.listening?root.green:root.muted}MicrophoneControl{Layout.preferredWidth:82;Layout.preferredHeight:66}CButton{text:"⋮";Layout.preferredWidth:44;Layout.preferredHeight:44;onClicked:responseDialog.open()}}
                 }
             }
             Panel { z:30;visible:root.currentSection!=="Hoje";anchors.left:parent.left;anchors.leftMargin:289;anchors.right:parent.right;anchors.rightMargin:12;anchors.top:parent.top;anchors.topMargin:12;anchors.bottom:commandDock.top;anchors.bottomMargin:10
@@ -337,8 +364,9 @@ ApplicationWindow {
                 }
                 Rectangle {
                     width:parent.width;height:64;radius:10;color:"#061118";border.color:root.line
-                    Row{anchors.fill:parent;anchors.margins:9;spacing:9;Wave{width:25;height:30;anchors.verticalCenter:parent.verticalCenter;active:true}TextField{width:parent.width-112;anchors.verticalCenter:parent.verticalCenter;placeholderText:"> Fale ou digite um comando...";color:root.ink;placeholderTextColor:root.muted;font.pixelSize:11;background:Item{} onAccepted:{if(text.trim()){root.assistantText="Comando registrado: "+text;clear()}}}Rectangle{width:44;height:44;radius:22;scale:1+(audioMonitor?audioMonitor.level:0)*.15;color:root.listening?"#a51b654f":"#9a103845";border.width:1;border.color:root.orbColor;Glyph{anchors.centerIn:parent;width:18;height:18;kind:"mic";stroke:"#d5ffff"}MouseArea{anchors.fill:parent;onClicked:audioMonitor.setListening(!root.listening)}}}
+                    Row{anchors.fill:parent;anchors.margins:9;spacing:9;Wave{width:25;height:30;anchors.verticalCenter:parent.verticalCenter;active:true}TextField{width:parent.width-112;anchors.verticalCenter:parent.verticalCenter;placeholderText:"> Fale ou digite um comando...";color:root.ink;placeholderTextColor:root.muted;font.pixelSize:11;background:Item{} onAccepted:{if(text.trim() && !aiCore.busy){root.sendText(text);clear()}}}MicrophoneControl{width:44;height:44}}
                 }
+                CButton{width:parent.width;text:"Conversa com Nyra";onClicked:responseDialog.open()}
                 Item{width:1;height:10}
             }
         }
@@ -346,10 +374,10 @@ ApplicationWindow {
 
     FileDialog{id:attachmentDialog;title:"Selecionar anexos";fileMode:FileDialog.OpenFiles;onAccepted:{for(var i=0;i<selectedFiles.length;i++){taskStore.addAttachment(taskStore.selectedTask.id,selectedFiles[i].toString())}}}
     Dialog{
-        id:newTaskDialog;modal:true;width:Math.min(root.width-40,540);anchors.centerIn:Overlay.overlay;padding:18
+        id:newTaskDialog;objectName:"newTaskDialog";modal:true;width:Math.min(root.width-40,540);anchors.centerIn:Overlay.overlay;padding:18
         background:Rectangle{radius:12;border.width:1;border.color:"#8a19e7f3";gradient:Gradient{GradientStop{position:0;color:"#f0143543"}GradientStop{position:1;color:"#f0061720"}}Rectangle{anchors.fill:parent;anchors.margins:3;radius:9;color:"transparent";border.width:3;border.color:"#1819e7f3"}}
         header:Rectangle{implicitHeight:54;color:"transparent";Label{anchors.left:parent.left;anchors.leftMargin:20;anchors.verticalCenter:parent.verticalCenter;text:"＋  NOVA DEMANDA";color:root.cyan;font.bold:true;font.pixelSize:15}}
-        contentItem:ColumnLayout{spacing:12;CField{id:newTitle;Layout.fillWidth:true;placeholderText:"Título da demanda"}CArea{id:newDescription;Layout.fillWidth:true;Layout.preferredHeight:110;placeholderText:"Descrição"}RowLayout{Layout.fillWidth:true;ComboBox{id:newPriority;model:["NORMAL","ALTA","BAIXA"];Layout.preferredWidth:145}CField{id:newDue;Layout.fillWidth:true;placeholderText:"Prazo, por exemplo: Amanhã, 18:00"}}}
+        contentItem:ColumnLayout{spacing:12;CField{id:newTitle;Layout.fillWidth:true;placeholderText:"Título da demanda"}CArea{id:newDescription;Layout.fillWidth:true;Layout.preferredHeight:110;placeholderText:"Descrição"}RowLayout{Layout.fillWidth:true;PrioritySelector{id:newPriority;objectName:"newPriority";model:["NORMAL","ALTA","BAIXA"];Layout.preferredWidth:145}CField{id:newDue;Layout.fillWidth:true;placeholderText:"Prazo, por exemplo: Amanhã, 18:00"}}}
         footer:RowLayout{height:58;spacing:10;Item{Layout.fillWidth:true}CButton{text:"Cancelar";Layout.preferredWidth:110;onClicked:newTaskDialog.close()}CButton{text:"Criar demanda";accent:true;Layout.preferredWidth:150;onClicked:{taskStore.addTask(newTitle.text,newDescription.text,newPriority.currentText,newDue.text);newTitle.clear();newDescription.clear();newDue.clear();newPriority.currentIndex=0;root.currentSection="Hoje";newTaskDialog.close()}}}
     }
     Dialog{
@@ -357,7 +385,7 @@ ApplicationWindow {
         function prepare(){if(!taskStore.selectedTask.id)return;editTitle.text=taskStore.selectedTask.title||"";editDescription.text=taskStore.selectedTask.description||"";editPriority.currentIndex=Math.max(0,["NORMAL","ALTA","BAIXA"].indexOf(taskStore.selectedTask.priority));editDue.text=taskStore.selectedTask.dueText||"";open()}
         background:Rectangle{radius:12;border.width:1;border.color:"#8a19e7f3";gradient:Gradient{GradientStop{position:0;color:"#f0143543"}GradientStop{position:1;color:"#f0061720"}}Rectangle{anchors.fill:parent;anchors.margins:3;radius:9;color:"transparent";border.width:3;border.color:"#1819e7f3"}}
         header:Rectangle{implicitHeight:54;color:"transparent";Label{anchors.left:parent.left;anchors.leftMargin:20;anchors.verticalCenter:parent.verticalCenter;text:"✎  EDITAR DEMANDA";color:root.cyan;font.bold:true;font.pixelSize:15}}
-        contentItem:ColumnLayout{spacing:12;CField{id:editTitle;Layout.fillWidth:true;placeholderText:"Título da demanda"}CArea{id:editDescription;Layout.fillWidth:true;Layout.preferredHeight:110;placeholderText:"Descrição"}RowLayout{Layout.fillWidth:true;ComboBox{id:editPriority;model:["NORMAL","ALTA","BAIXA"];Layout.preferredWidth:145}CField{id:editDue;Layout.fillWidth:true;placeholderText:"Prazo"}}}
+        contentItem:ColumnLayout{spacing:12;CField{id:editTitle;Layout.fillWidth:true;placeholderText:"Título da demanda"}CArea{id:editDescription;Layout.fillWidth:true;Layout.preferredHeight:110;placeholderText:"Descrição"}RowLayout{Layout.fillWidth:true;PrioritySelector{id:editPriority;model:["NORMAL","ALTA","BAIXA"];Layout.preferredWidth:145}CField{id:editDue;Layout.fillWidth:true;placeholderText:"Prazo"}}}
         footer:RowLayout{height:58;spacing:10;Item{Layout.fillWidth:true}CButton{text:"Cancelar";Layout.preferredWidth:110;onClicked:editTaskDialog.close()}CButton{text:"Salvar alterações";accent:true;Layout.preferredWidth:160;onClicked:{taskStore.updateTask(taskStore.selectedTask.id,editTitle.text,editDescription.text,editPriority.currentText,editDue.text);editTaskDialog.close()}}}
     }
     Dialog{
@@ -366,5 +394,66 @@ ApplicationWindow {
         header:Rectangle{implicitHeight:52;color:"transparent";Label{anchors.left:parent.left;anchors.leftMargin:20;anchors.verticalCenter:parent.verticalCenter;text:"EXCLUIR DEMANDA?";color:root.red;font.bold:true;font.pixelSize:15}}
         contentItem:Label{text:"Esta ação remove a demanda e seus anexos do banco local.";color:root.ink;wrapMode:Text.WordWrap}
         footer:RowLayout{height:58;spacing:10;Item{Layout.fillWidth:true}CButton{text:"Cancelar";Layout.preferredWidth:110;onClicked:deleteDialog.close()}CButton{text:"Excluir";Layout.preferredWidth:110;onClicked:{if(taskStore.selectedTask.id)taskStore.deleteTask(taskStore.selectedTask.id);deleteDialog.close()}}}
+    }
+
+    Dialog {
+        id: deviceSettings; objectName: "deviceSettings"
+        modal:true; width:Math.min(root.width-30,650); height:Math.min(root.height-40,740)
+        anchors.centerIn:Overlay.overlay; padding:20
+        onOpened:{piperPath.text=localVoice.executable;voicePath.text=localVoice.model;localVoice.refreshDevices()}
+        background:Rectangle{radius:12;color:"#0c2330";border.color:"#468698"}
+        header:Label{text:"CONFIGURAÇÕES DA NYRA";color:root.cyan;padding:20;font.pixelSize:18}
+        contentItem:ScrollView {
+            clip:true; contentWidth:availableWidth
+            ColumnLayout {
+                width:parent.width; spacing:12
+                Label{text:"IA local";color:root.ink;font.bold:true}
+                Label{Layout.fillWidth:true;text:aiCore.modelName+" · "+aiCore.status+"\n"+aiCore.endpoint;color:root.muted;wrapMode:Text.WordWrap}
+                CButton{text:"Verificar núcleo local";onClicked:aiCore.detectRuntime()}
+                Label{text:"Voz · Piper offline";color:root.cyan;font.bold:true}
+                DeviceSwitch{text:"Ler respostas em voz alta";palette.windowText:root.ink;checked:localVoice.enabled;onToggled:localVoice.setPermission("enabled",checked)}
+                CField{id:piperPath;Layout.fillWidth:true;placeholderText:"Caminho completo de piper.exe"}
+                CField{id:voicePath;Layout.fillWidth:true;placeholderText:"Caminho completo da voz .onnx"}
+                Label{Layout.fillWidth:true;text:"Mantenha o arquivo .onnx.json ao lado da voz. O Piper usa somente arquivos locais.";color:root.muted;wrapMode:Text.WordWrap}
+                RowLayout {
+                    CButton{text:"Salvar voz";onClicked:localVoice.configure(piperPath.text,voicePath.text)}
+                    CButton{text:"Testar voz";onClicked:{localVoice.configure(piperPath.text,voicePath.text);localVoice.speak("Olá, eu sou a Nyra. Minha voz funciona localmente.")}}
+                    CButton{text:"Parar";onClicked:localVoice.stop()}
+                }
+                Label{Layout.fillWidth:true;text:localVoice.status;color:root.muted;wrapMode:Text.WordWrap}
+                Label{text:"Permissões · Microfone";color:root.cyan;font.bold:true}
+                DeviceSwitch{text:"Permitir captura ao clicar no microfone";palette.windowText:root.ink;checked:localVoice.microphoneAllowed;onToggled:localVoice.setPermission("microphone",checked)}
+                Label{Layout.fillWidth:true;text:audioMonitor.error || "O botão ativa o medidor de áudio. Transcrição de fala ainda não está integrada.";color:root.muted;wrapMode:Text.WordWrap}
+                Label{text:"Câmera / Webcam";color:root.cyan;font.bold:true}
+                PrioritySelector {
+                    Layout.fillWidth:true; model:localVoice.cameras; textRole:"label"; valueRole:"value"
+                    displayText:currentIndex>=0 ? currentText : "Nenhuma câmera selecionada"
+                    Component.onCompleted:currentIndex=indexOfValue(localVoice.cameraId)
+                    onModelChanged:currentIndex=indexOfValue(localVoice.cameraId)
+                    onActivated:localVoice.selectCamera(currentValue)
+                    delegate:ItemDelegate{required property var modelData;width:parent ? parent.width : 250;text:modelData.label;palette.text:root.ink;background:Rectangle{color:parent.hovered?"#285d73":"#102e40"}}
+                }
+                DeviceSwitch{text:"Permitir uso futuro da câmera";palette.windowText:root.ink;checked:localVoice.cameraAllowed;onToggled:localVoice.setPermission("camera",checked)}
+                Label{Layout.fillWidth:true;text:"A preferência é salva. Nenhuma captura de imagem é iniciada nesta versão.";color:root.muted;wrapMode:Text.WordWrap}
+                Label{text:"Companion de celular";color:root.cyan;font.bold:true}
+                Label{Layout.fillWidth:true;text:"Não conectado. Pareamento e permissões por dispositivo serão disponibilizados com o Companion. Nenhum acesso remoto está ativo.";color:root.muted;wrapMode:Text.WordWrap}
+                Label{text:"Aplicativo";color:root.cyan;font.bold:true}
+                DeviceSwitch{text:"Notificações";palette.windowText:root.ink;checked:root.notificationsEnabled;onToggled:root.notificationsEnabled=checked}
+            }
+        }
+        footer:CButton{text:"Concluir";onClicked:deviceSettings.close()}
+    }
+
+
+    Dialog {
+        id:responseDialog;modal:true;width:Math.min(root.width-30,720);height:Math.min(root.height-40,640);anchors.centerIn:Overlay.overlay;padding:20
+        background:Rectangle{radius:12;color:"#0c2330";border.color:"#468698"}
+        header:Label{text:"CONVERSA COM NYRA";color:root.cyan;padding:20;font.pixelSize:18}
+        contentItem:ColumnLayout {
+            ScrollView{Layout.fillWidth:true;Layout.fillHeight:true;clip:true;TextArea{text:root.assistantText;readOnly:true;selectByMouse:true;wrapMode:TextEdit.WordWrap;color:root.ink;background:Item{}}}
+            CField{Layout.fillWidth:true;placeholderText:aiCore.busy?"Aguardando resposta…":"Digite sua mensagem";enabled:!aiCore.busy;onAccepted:{root.sendText(text);clear()}}
+            Label{Layout.fillWidth:true;text:localVoice.status;color:root.muted;wrapMode:Text.WordWrap}
+        }
+        footer:CButton{text:"Fechar conversa";onClicked:responseDialog.close()}
     }
 }

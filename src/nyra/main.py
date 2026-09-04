@@ -12,6 +12,7 @@ from PySide6.QtQuickControls2 import QQuickStyle
 
 from .ai_core import AiCore
 from .audio_monitor import AudioMonitor
+from .local_voice import LocalVoice
 from .task_store import TaskStore
 from .system_monitor import SystemMonitor
 
@@ -40,10 +41,14 @@ def main() -> int:
     system_monitor = SystemMonitor()
     ai_core = AiCore()
     audio_monitor = AudioMonitor()
+    local_voice = LocalVoice()
+    app.aboutToQuit.connect(local_voice.shutdown)
+    app.aboutToQuit.connect(lambda: audio_monitor.setListening(False))
     engine.rootContext().setContextProperty("taskStore", task_store)
     engine.rootContext().setContextProperty("systemMonitor", system_monitor)
     engine.rootContext().setContextProperty("aiCore", ai_core)
     engine.rootContext().setContextProperty("audioMonitor", audio_monitor)
+    engine.rootContext().setContextProperty("localVoice", local_voice)
 
     qml_path = Path(__file__).resolve().parent / "ui" / "ConceptShell.qml"
     engine.load(QUrl.fromLocalFile(str(qml_path)))

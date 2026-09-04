@@ -21,20 +21,18 @@ class _CompletionWorker(QThread):
     completed = Signal(str)
     failed = Signal(str)
 
-    def __init__(self, endpoint: str, model: str, message: str, parent: QObject | None = None) -> None:
+    def __init__(self, endpoint: str, model: str, message: str, history: list, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self._endpoint = endpoint
         self._model = model
         self._message = message
+        self._history = history
 
     def run(self) -> None:
         try:
             payload = {
                 "model": self._model,
-                "messages": [
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": self._message},
-                ],
+                "messages": [{"role": "system", "content": SYSTEM_PROMPT}] + self._history + [{"role": "user", "content": self._message}],
                 "temperature": 0.65,
                 "stream": False,
             }
@@ -73,6 +71,8 @@ class AiCore(QObject):
         self._status = "OFFLINE"
         self._busy = False
         self._worker: _CompletionWorker | None = None
+        self._history: list = []
+        self._pending = ""
         self._validate_local_endpoint()
         self.detectRuntime()
 
@@ -132,23 +132,29 @@ class AiCore(QObject):
 
         self._set_busy(True)
         self._set_status("THINKING")
-        worker = _CompletionWorker(self._endpoint, self._model, message, self)
+        self._pending = message
+        worker = _CompletionWorker(self._endpoint, self._model, message, list(self._history), self)
         self._worker = worker
         worker.completed.connect(self._on_completed)
         worker.failed.connect(self._on_failed)
-        worker.finished.connect(worker.deleteLater)
+        worker.finished.connect(self._worker_finished)
         worker.start()
 
     @Slot(str)
     def _on_completed(self, text: str) -> None:
-        self._set_busy(False)
+        self._history.extend([{"role": "user", "content": self._pending}, {"role": "assistant", "content": text}])
+        self._history = self._history[-20:]
         self._set_status("READY")
         self.responseReady.emit(text)
-        self._worker = None
 
     @Slot(str)
     def _on_failed(self, message: str) -> None:
-        self._set_busy(False)
         self._set_status("OFFLINE")
         self.errorOccurred.emit(message)
-        self._worker = None
+
+    @Slot()
+    def _worker_finished(self) -> None:
+        if self._worker:
+            self._worker.deleteLater()
+            self._worker = None
+        self._set_busy(False)

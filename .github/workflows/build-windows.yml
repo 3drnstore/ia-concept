@@ -41,7 +41,7 @@ jobs:
           $env:LOCALAPPDATA = Join-Path $env:RUNNER_TEMP "NyraSmokeLocalAppData"
           New-Item -ItemType Directory -Path $env:LOCALAPPDATA -Force | Out-Null
           $env:NYRA_SMOKE_TEST_READY_FILE = $readyFile
-          $process = Start-Process -FilePath (Resolve-Path "dist/Nyra/Nyra.exe") -PassThru -RedirectStandardOutput $stdoutFile -RedirectStandardError $stderrFile
+          $process = Start-Process -FilePath (Resolve-Path "dist/Nyra/Nyra.exe") -WindowStyle Hidden -PassThru -RedirectStandardOutput $stdoutFile -RedirectStandardError $stderrFile
 
           try {
             $deadline = (Get-Date).AddSeconds(20)
@@ -70,7 +70,10 @@ jobs:
           }
       - name: Package build
         shell: pwsh
-        run: Compress-Archive -Path dist/Nyra/* -DestinationPath Nyra-0.2-Windows.zip -Force
+        run: |
+          Copy-Item scripts/setup-voice.ps1 dist/Nyra/setup-voice.ps1
+          Copy-Item docs/voice-setup.md dist/Nyra/LEIA-ME-VOZ.md
+          Compress-Archive -Path dist/Nyra/* -DestinationPath Nyra-0.2-Windows.zip -Force
       - uses: actions/upload-artifact@v4
         with:
           name: Nyra-0.2-Windows
