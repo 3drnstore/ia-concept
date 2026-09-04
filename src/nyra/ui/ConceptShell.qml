@@ -9,7 +9,7 @@ ApplicationWindow {
     width: 1440; height: 840
     minimumWidth: compactMode ? 420 : 1050
     minimumHeight: compactMode ? 680 : 700
-    color: "#02070b"
+    color: "transparent"
     flags: Qt.Window | Qt.FramelessWindowHint
     title: "NYRA // NEXUS COMMAND CORE"
 
@@ -52,8 +52,7 @@ ApplicationWindow {
         id:b; property bool accent:false; property bool leftAligned:false; implicitHeight:42
         background: Rectangle { radius:8; border.width:1; border.color:b.accent?"#7419e7f3":"#34395560"
             gradient:Gradient{GradientStop{position:0;color:b.down?"#d01a4652":b.hovered?"#ca153642":b.accent?"#cb174354":"#a5152933"}GradientStop{position:1;color:b.accent?"#a40a2530":"#8c0a171e"}}
-            Rectangle{anchors.left:parent.left;anchors.right:parent.right;anchors.top:parent.top;height:1;color:b.accent?"#8effffff":"#3dffffff";radius:1}
-            Rectangle{visible:b.accent;anchors.fill:parent;anchors.margins:3;radius:5;color:"transparent";border.width:1;border.color:"#2819e7f3"}
+            Rectangle{visible:b.accent;anchors.fill:parent;anchors.margins:2;radius:6;color:"transparent";border.width:3;border.color:"#1819e7f3"}
             Rectangle { visible:b.accent && b.leftAligned; width:3; radius:2; color:root.cyan; anchors.left:parent.left; anchors.top:parent.top; anchors.bottom:parent.bottom }
         }
         contentItem: Label { text:b.text; color:b.accent?"#d5fdff":root.ink; font.pixelSize:12; leftPadding:b.leftAligned?18:0; horizontalAlignment:b.leftAligned?Text.AlignLeft:Text.AlignHCenter; verticalAlignment:Text.AlignVCenter }
@@ -73,7 +72,7 @@ ApplicationWindow {
             else if(kind==="cpu"){box(w*.25,h*.25,w*.5,h*.5,2);box(w*.36,h*.36,w*.28,h*.28,1);for(var k=0;k<4;k++){var p=.31+k*.13;line(w*p,h*.08,w*p,h*.22);line(w*p,h*.78,w*p,h*.92);line(w*.08,h*p,w*.22,h*p);line(w*.78,h*p,w*.92,h*p)}}
             else if(kind==="mic"){box(w*.36,h*.13,w*.28,h*.48,5);c.beginPath();c.arc(w*.5,h*.49,w*.27,0,3.1416);c.stroke();line(w*.5,h*.76,w*.5,h*.9);line(w*.35,h*.9,w*.65,h*.9)}
             else if(kind==="db"){for(var q=0;q<3;q++){c.beginPath();c.ellipse(w*.5,h*(.25+q*.22),w*.31,h*.12,0,0,6.283);c.stroke()}line(w*.19,h*.25,w*.19,h*.69);line(w*.81,h*.25,w*.81,h*.69)}
-            else if(kind==="moon"){c.beginPath();c.arc(w*.49,h*.49,w*.34,.35,5.95);c.arc(w*.62,h*.42,w*.29,5.1,1.45,true);c.stroke()}
+            else if(kind==="moon"){c.beginPath();c.moveTo(w*.65,h*.15);c.bezierCurveTo(w*.29,h*.17,w*.17,h*.7,w*.52,h*.86);c.bezierCurveTo(w*.37,h*.66,w*.41,h*.34,w*.65,h*.15);c.closePath();c.stroke()}
             else if(kind==="wave"){for(var z=0;z<7;z++){var hh=h*(.18+.65*Math.abs(Math.sin(z*1.7)));line(w*(.15+z*.115),h*.5-hh*.5,w*(.15+z*.115),h*.5+hh*.5)}}
             else if(kind==="windows"){for(var n=0;n<4;n++){var xx=n%2,yy=Math.floor(n/2);c.fillRect(w*(.12+xx*.4),h*(.12+yy*.4),w*.3,h*.3)}}
             else if(kind==="cloud"){c.beginPath();c.moveTo(w*.18,h*.66);c.bezierCurveTo(w*.08,h*.45,w*.28,h*.36,w*.39,h*.43);c.bezierCurveTo(w*.48,h*.16,w*.78,h*.26,w*.78,h*.46);c.bezierCurveTo(w*.96,h*.5,w*.88,h*.7,w*.7,h*.7);c.lineTo(w*.28,h*.7);c.stroke()}
@@ -129,6 +128,8 @@ ApplicationWindow {
         Wave { anchors.left:parent.left; anchors.right:parent.right; anchors.verticalCenter:parent.verticalCenter; height:86 }
     }
 
+    Rectangle { anchors.fill:parent; radius:12; color:"#02070b"; z:-100 }
+
     // frameless move / resize
     MouseArea { anchors.left:parent.left;anchors.top:parent.top;anchors.bottom:parent.bottom;width:5;cursorShape:Qt.SizeHorCursor;onPressed:root.startSystemResize(Qt.LeftEdge) }
     MouseArea { anchors.right:parent.right;anchors.top:parent.top;anchors.bottom:parent.bottom;width:5;cursorShape:Qt.SizeHorCursor;onPressed:root.startSystemResize(Qt.RightEdge) }
@@ -136,7 +137,7 @@ ApplicationWindow {
 
     Rectangle {
         id:topbar; z:50; height:38; anchors.left:parent.left;anchors.right:parent.right;anchors.top:parent.top
-        color:"#d0030a0f"; border.color:"#2f2b4b56"
+        color:"#d0030a0f"; border.color:"#2f2b4b56"; radius:10
         RowLayout { anchors.fill:parent; anchors.leftMargin:14; anchors.rightMargin:10
             Mono { text:root.compactMode?"N.Y.R.A. // COMPACT":"N.Y.R.A.   NEURAL YIELDING REASONING ASSISTANT"; color:root.compactMode?root.cyan:root.ink }
             Item { Layout.fillWidth:true }
@@ -162,7 +163,7 @@ ApplicationWindow {
                         }
                         Mono{text:"●  LOCAL AI ONLINE";color:root.green}
                         Item{Layout.preferredHeight:4}
-                        Repeater{model:[{t:"Hoje",i:"home"},{t:"Demandas",i:"tasks"},{t:"Memória",i:"brain"},{t:"Arquivos",i:"folder"},{t:"Rotinas",i:"clock"},{t:"Configurações",i:"gear"}];Item{Layout.fillWidth:true;implicitHeight:42;Rectangle{anchors.fill:parent;radius:8;color:index===0?"#a6162b35":"transparent";Rectangle{visible:index===0;width:3;radius:2;color:root.cyan;anchors.left:parent.left;anchors.top:parent.top;anchors.bottom:parent.bottom}RowLayout{anchors.fill:parent;anchors.leftMargin:14;spacing:12;Glyph{kind:modelData.i;stroke:index===0?root.cyan:"#9db0ba";Layout.preferredWidth:18;Layout.preferredHeight:18}Label{text:modelData.t;color:index===0?root.ink:"#bdcbd1";font.pixelSize:12}Item{Layout.fillWidth:true}}MouseArea{anchors.fill:parent;hoverEnabled:true}}}}
+                        Repeater{model:[{t:"Hoje",i:"home"},{t:"Demandas",i:"tasks"},{t:"Memória",i:"brain"},{t:"Arquivos",i:"folder"},{t:"Rotinas",i:"clock"},{t:"Configurações",i:"gear"}];Item{Layout.fillWidth:true;implicitHeight:42;Rectangle{anchors.fill:parent;radius:8;color:index===0?"#a6162b35":"transparent";Rectangle{visible:index===0;anchors.fill:parent;anchors.margins:2;radius:6;color:"transparent";border.width:3;border.color:"#1819e7f3"}Rectangle{visible:index===0;width:3;radius:2;color:root.cyan;anchors.left:parent.left;anchors.top:parent.top;anchors.bottom:parent.bottom}RowLayout{anchors.fill:parent;anchors.leftMargin:14;spacing:12;Glyph{kind:modelData.i;stroke:index===0?root.cyan:"#9db0ba";Layout.preferredWidth:18;Layout.preferredHeight:18}Label{text:modelData.t;color:index===0?root.ink:"#bdcbd1";font.pixelSize:12}Item{Layout.fillWidth:true}}MouseArea{anchors.fill:parent;hoverEnabled:true}}}}
                         Item{Layout.preferredHeight:4}
                         CButton{Layout.fillWidth:true;text:"＋  Nova demanda";accent:true}
                         Item{Layout.fillHeight:true}
@@ -184,7 +185,7 @@ ApplicationWindow {
                                     {title:"3DRN Store",tag:"PROJETO",pri:"MÉDIA",due:"Amanhã, 18:00",sel:false},
                                     {title:"PsicoGestão",tag:"CLIENTE",pri:"ALTA",due:"27 Mai, 09:00",sel:false},
                                     {title:"Organizar arquivos",tag:"PESSOAL",pri:"BAIXA",due:"Sem prazo",sel:false}
-                                ];Rectangle{Layout.fillWidth:true;Layout.fillHeight:true;radius:9;color:modelData.sel?"#a8122d38":"#8a0d1c24";border.width:1;border.color:modelData.sel?root.cyan:"#362b4a54";ColumnLayout{anchors.fill:parent;anchors.margins:12;spacing:6;Glyph{kind:index===0?"folder":index===1?"cube":index===2?"brain":"folder";stroke:modelData.sel?root.cyan:"#a8bbc4";Layout.preferredWidth:22;Layout.preferredHeight:22}Label{text:modelData.title;color:root.ink;font.bold:true;font.pixelSize:13;elide:Text.ElideRight;Layout.fillWidth:true}Item{Layout.fillHeight:true}RowLayout{spacing:7;Rectangle{width:62;height:20;radius:10;color:"#8a17303a";Mono{anchors.centerIn:parent;text:modelData.tag;font.pixelSize:7}}Rectangle{width:50;height:20;radius:10;color:modelData.pri==="ALTA"?"#9a4b2029":modelData.pri==="BAIXA"?"#9a173d2a":"#9a4a3a17";Mono{anchors.centerIn:parent;text:modelData.pri;color:modelData.pri==="ALTA"?"#ff7f88":modelData.pri==="BAIXA"?"#6de790":"#e4be51";font.pixelSize:7}}}Mono{text:modelData.due;font.pixelSize:8}}}}
+                                ];Rectangle{Layout.fillWidth:true;Layout.fillHeight:true;radius:9;color:modelData.sel?"#a8122d38":"#8a0d1c24";border.width:1;border.color:modelData.sel?root.cyan:"#362b4a54";Rectangle{visible:modelData.sel;anchors.fill:parent;anchors.margins:2;radius:7;color:"transparent";border.width:4;border.color:"#1a19e7f3"}ColumnLayout{anchors.fill:parent;anchors.margins:12;spacing:6;Glyph{kind:index===0?"folder":index===1?"cube":index===2?"brain":"folder";stroke:modelData.sel?root.cyan:"#a8bbc4";Layout.preferredWidth:22;Layout.preferredHeight:22}Label{text:modelData.title;color:root.ink;font.bold:true;font.pixelSize:13;elide:Text.ElideRight;Layout.fillWidth:true}Item{Layout.fillHeight:true}RowLayout{spacing:7;Rectangle{width:62;height:20;radius:10;color:"#8a17303a";Mono{anchors.centerIn:parent;text:modelData.tag;font.pixelSize:7}}Rectangle{width:50;height:20;radius:10;color:modelData.pri==="ALTA"?"#9a4b2029":modelData.pri==="BAIXA"?"#9a173d2a":"#9a4a3a17";Mono{anchors.centerIn:parent;text:modelData.pri;color:modelData.pri==="ALTA"?"#ff7f88":modelData.pri==="BAIXA"?"#6de790":"#e4be51";font.pixelSize:7}}}Mono{text:modelData.due;font.pixelSize:8}}}}
                             }
                         }
                     }
@@ -220,7 +221,6 @@ ApplicationWindow {
             // footer command dock
             Rectangle{id:commandDock;anchors.left:parent.left;anchors.right:parent.right;anchors.bottom:parent.bottom;height:76;radius:12;border.width:1;border.color:"#5a34717e";gradient:Gradient{GradientStop{position:0;color:"#d0143543"}GradientStop{position:.18;color:"#c00c2632"}GradientStop{position:1;color:"#d0061821"}}
                 Rectangle{anchors.fill:parent;anchors.margins:2;radius:10;color:"transparent";border.width:1;border.color:"#3024dbea"}
-                Rectangle{anchors.left:parent.left;anchors.right:parent.right;anchors.top:parent.top;height:2;color:"#5abefaff";radius:1}
                 RowLayout{anchors.fill:parent;spacing:0
                     RowLayout{Layout.fillWidth:true;Layout.fillHeight:true;Layout.leftMargin:26;Layout.rightMargin:18;spacing:15;Wave{Layout.preferredWidth:34;Layout.preferredHeight:36;active:root.talking}Rectangle{Layout.preferredWidth:1;Layout.preferredHeight:42;color:"#8119e7f3"}Label{text:"> Fale ou digite um comando...";color:"#9db1ba";font.pixelSize:14;Layout.fillWidth:true}Rectangle{Layout.preferredWidth:1;Layout.preferredHeight:30;color:"#303f6470"}Mono{text:"ESC para cancelar"}Item{Layout.preferredWidth:82;Layout.preferredHeight:66;Canvas{anchors.fill:parent;opacity:.65;onPaint:{var c=getContext("2d");c.reset();c.fillStyle=root.cyan;for(var i=0;i<12;i++){var a=i/12*6.283,r=30+(i%3)*3;c.globalAlpha=.12+(i%4)*.08;c.beginPath();c.arc(width/2+Math.cos(a)*r,height/2+Math.sin(a)*r,i%4===0?2:1,0,6.283);c.fill()}}Rectangle{anchors.centerIn:parent;width:60;height:60;radius:30;color:"#76103442";border.width:1;border.color:"#6e19ddea";Rectangle{anchors.centerIn:parent;width:40;height:40;radius:20;color:"#c20a5363";border.width:1;border.color:"#7429eaf4";Glyph{anchors.centerIn:parent;width:20;height:20;kind:"mic";stroke:"#d5ffff"}}}Wave{anchors.left:parent.left;anchors.right:parent.right;anchors.verticalCenter:parent.verticalCenter;height:22;active:root.talking;z:-1}}CButton{text:"⋮";Layout.preferredWidth:44;Layout.preferredHeight:44}}}
                 }
@@ -268,6 +268,7 @@ ApplicationWindow {
                         Mono{text:"NAVEGAÇÃO";color:root.ink;font.pixelSize:8}
                         Repeater { model:[{t:"Hoje",i:"home"},{t:"Demandas",i:"tasks"},{t:"Memória",i:"brain"},{t:"Arquivos",i:"folder"},{t:"Rotinas",i:"clock"},{t:"Configurações",i:"gear"}]
                             Rectangle { width:parent.width;height:34;radius:7;color:index===0?"#a6162b35":"transparent";border.width:index===0?1:0;border.color:index===0?root.cyan:"transparent"
+                                Rectangle{visible:index===0;anchors.fill:parent;anchors.margins:2;radius:5;color:"transparent";border.width:3;border.color:"#1819e7f3"}
                                 Rectangle{visible:index===0;width:3;radius:2;color:root.cyan;anchors.left:parent.left;anchors.top:parent.top;anchors.bottom:parent.bottom}
                                 Row{anchors.fill:parent;anchors.leftMargin:14;spacing:12;Glyph{width:17;height:17;anchors.verticalCenter:parent.verticalCenter;kind:modelData.i;stroke:index===0?root.cyan:"#9db0ba"}Label{anchors.verticalCenter:parent.verticalCenter;text:modelData.t;color:root.ink;font.pixelSize:11}}
                             }
@@ -283,6 +284,7 @@ ApplicationWindow {
                         Label{width:parent.width;text:"Estas são as coisas que merecem sua atenção agora.";color:root.muted;font.pixelSize:12;wrapMode:Text.WordWrap}
                         Repeater { model:[{t:"Cotação Hospital",s:"▲ PRIORIDADE ALTA"},{t:"3DRN Store",s:"◉ EM ANDAMENTO"},{t:"PsicoGestão",s:"○ AGUARDANDO"}]
                             Rectangle { width:parent.width;height:65;radius:9;color:index===0?"#102a2c":"#08141a";border.color:index===0?root.cyan:root.line
+                                Rectangle{visible:index===0;anchors.fill:parent;anchors.margins:2;radius:7;color:"transparent";border.width:4;border.color:"#1a19e7f3"}
                                 Column{anchors.fill:parent;anchors.margins:10;spacing:4;Label{text:modelData.t;color:root.ink;font.pixelSize:14;font.bold:true}Mono{text:modelData.s;font.pixelSize:7}}
                             }
                         }
