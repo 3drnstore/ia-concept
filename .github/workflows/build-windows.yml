@@ -31,7 +31,7 @@ jobs:
       - name: Build Nyra
         shell: pwsh
         run: |
-          pyinstaller --noconfirm --clean --windowed --name Nyra --icon "src/nyra/assets/nyra.ico" --add-data "src/nyra/ui;nyra/ui" run_nyra.py
+          pyinstaller --noconfirm --clean --windowed --name Nyra --icon "src/nyra/assets/nyra.ico" --add-data "src/nyra/ui;nyra/ui" --add-data "src/nyra/assets;nyra/assets" run_nyra.py
       - name: Smoke test packaged application
         shell: pwsh
         run: |
