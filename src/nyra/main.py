@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sys
+import ctypes
 from pathlib import Path
 
 from PySide6.QtCore import QUrl
@@ -15,6 +16,14 @@ from .system_monitor import SystemMonitor
 
 
 def main() -> int:
+    # Give the frameless window its own Windows taskbar identity. Without an
+    # explicit AppUserModelID Windows may group it under the Python/Qt host and
+    # display the generic executable icon even though the EXE has an icon.
+    if sys.platform == "win32":
+        ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID(
+            "NYRA.NexusCommandCore.0.2"
+        )
+
     QQuickStyle.setStyle("Fusion")
     app = QGuiApplication(sys.argv)
     app.setApplicationName("Nyra")
@@ -36,6 +45,11 @@ def main() -> int:
 
     if not engine.rootObjects():
         return 1
+
+    if icon_path.exists():
+        root_window = engine.rootObjects()[0]
+        if hasattr(root_window, "setIcon"):
+            root_window.setIcon(QIcon(str(icon_path)))
 
     # The Windows CI smoke test sets this variable. Creating the marker only
     # after a root object exists proves that Qt loaded the initial QML window;
