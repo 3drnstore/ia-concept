@@ -5,7 +5,7 @@ import sys
 import ctypes
 from pathlib import Path
 
-from PySide6.QtCore import QUrl
+from PySide6.QtCore import QTimer, QUrl
 from PySide6.QtGui import QGuiApplication, QIcon
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
@@ -48,8 +48,31 @@ def main() -> int:
 
     if icon_path.exists():
         root_window = engine.rootObjects()[0]
-        if hasattr(root_window, "setIcon"):
+
+        def apply_window_icon() -> None:
             root_window.setIcon(QIcon(str(icon_path)))
+            if sys.platform != "win32":
+                return
+            # Frameless Qt Quick windows do not always propagate QWindow's icon
+            # to the Windows taskbar. Set both native icon sizes explicitly.
+            image_icon = 1
+            lr_load_from_file = 0x0010
+            lr_default_size = 0x0040
+            icon_handle = ctypes.windll.user32.LoadImageW(
+                None,
+                str(icon_path),
+                image_icon,
+                0,
+                0,
+                lr_load_from_file | lr_default_size,
+            )
+            if icon_handle:
+                hwnd = int(root_window.winId())
+                wm_seticon = 0x0080
+                ctypes.windll.user32.SendMessageW(hwnd, wm_seticon, 0, icon_handle)
+                ctypes.windll.user32.SendMessageW(hwnd, wm_seticon, 1, icon_handle)
+
+        QTimer.singleShot(0, apply_window_icon)
 
     # The Windows CI smoke test sets this variable. Creating the marker only
     # after a root object exists proves that Qt loaded the initial QML window;

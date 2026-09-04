@@ -141,6 +141,31 @@ class TaskStore(QObject):
             con.execute("UPDATE tasks SET status = ? WHERE id = ?", (new_status, task_id))
         self.refresh()
 
+    @Slot(int, str, str, str, str)
+    def updateTask(
+        self,
+        task_id: int,
+        title: str,
+        description: str,
+        priority: str,
+        due_text: str,
+    ) -> None:
+        title = title.strip()
+        if not title:
+            return
+        priority = priority.strip().upper() or "NORMAL"
+        with self._connect() as con:
+            con.execute(
+                """
+                UPDATE tasks
+                SET title = ?, description = ?, priority = ?, due_text = ?
+                WHERE id = ?
+                """,
+                (title, description.strip(), priority, due_text.strip(), task_id),
+            )
+        self._selected_id = task_id
+        self.refresh()
+
     @Slot(int)
     def deleteTask(self, task_id: int) -> None:
         with self._connect() as con:
