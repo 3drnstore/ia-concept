@@ -2,6 +2,8 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Window
+import QtQuick.Dialogs
+import QtCore
 
 ApplicationWindow {
     id: root
@@ -17,9 +19,14 @@ ApplicationWindow {
     property real savedW: 1440
     property real savedH: 840
     property bool talking: false
+    property bool listening: audioMonitor ? audioMonitor.listening : false
     property string currentSection: "Hoje"
-    property bool notificationsEnabled: true
-    property bool startWithWindows: false
+    property date now: new Date()
+    property string commandText: ""
+    property color orbColor: talking ? "#f0c94d" : listening ? "#35e788" : cyan
+    property alias notificationsEnabled: preferences.notificationsEnabled
+    property alias startWithWindows: preferences.startWithWindows
+    property alias networkUnlocked: preferences.networkUnlocked
     property string assistantText: "Estou aqui.\nPode falar comigo normalmente."
     property color cyan: "#19e7f3"
     property color cyan2: "#0aa6b7"
@@ -30,6 +37,9 @@ ApplicationWindow {
     property color line: "#542b5360"
     property color red: "#ff5867"
     property color green: "#35e788"
+
+    Settings{id:preferences;category:"NyraPreferences";property bool notificationsEnabled:true;property bool startWithWindows:false;property bool networkUnlocked:false}
+    Timer{interval:60000;running:true;repeat:true;onTriggered:root.now=new Date()}
 
     Behavior on width { NumberAnimation { duration: 380; easing.type: Easing.InOutCubic } }
     Behavior on height { NumberAnimation { duration: 380; easing.type: Easing.InOutCubic } }
@@ -43,6 +53,9 @@ ApplicationWindow {
         }
     }
     function say(t) { assistantText=t; talking=true; systemMonitor.setSpeaking(true); talkTimer.restart() }
+    function greeting(){var h=now.getHours();return h<12?"Bom dia.":h<18?"Boa tarde.":"Boa noite."}
+    function skyGlyph(){var h=now.getHours();return h>=6&&h<18?"sun":"moon"}
+    function submitCommand(){var t=commandInput.text.trim();if(!t)return;commandInput.clear();assistantText="Comando registrado: "+t;talking=true;systemMonitor.setSpeaking(true);talkTimer.restart()}
     Timer { id:talkTimer; interval:3200; onTriggered:{ talking=false; systemMonitor.setSpeaking(false) } }
 
     component Mono: Label { color:root.muted; font.family:"Consolas"; font.pixelSize:10; font.letterSpacing:1.05 }
@@ -60,6 +73,8 @@ ApplicationWindow {
         }
         contentItem: Label { text:b.text; color:b.accent?"#d5fdff":root.ink; font.pixelSize:12; leftPadding:b.leftAligned?18:0; horizontalAlignment:b.leftAligned?Text.AlignLeft:Text.AlignHCenter; verticalAlignment:Text.AlignVCenter }
     }
+    component CField: TextField{color:root.ink;placeholderTextColor:"#78909a";font.family:"OCR A Extended";selectionColor:root.cyan2;background:Rectangle{radius:7;color:"#d0091b24";border.width:1;border.color:"#6241a9ba";Rectangle{anchors.fill:parent;anchors.margins:2;radius:5;color:"transparent";border.width:2;border.color:"#1119e7f3"}}}
+    component CArea: TextArea{color:root.ink;placeholderTextColor:"#78909a";font.family:"OCR A Extended";selectionColor:root.cyan2;wrapMode:TextEdit.WordWrap;background:Rectangle{radius:7;color:"#d0091b24";border.width:1;border.color:"#6241a9ba";Rectangle{anchors.fill:parent;anchors.margins:2;radius:5;color:"transparent";border.width:2;border.color:"#1119e7f3"}}}
     component Glyph: Canvas {
         id:gi; property string kind:"folder"; property color stroke:root.muted; implicitWidth:20; implicitHeight:20
         onKindChanged:requestPaint(); onStrokeChanged:requestPaint(); Component.onCompleted:requestPaint()
@@ -76,6 +91,7 @@ ApplicationWindow {
             else if(kind==="mic"){box(w*.36,h*.13,w*.28,h*.48,5);c.beginPath();c.arc(w*.5,h*.49,w*.27,0,3.1416);c.stroke();line(w*.5,h*.76,w*.5,h*.9);line(w*.35,h*.9,w*.65,h*.9)}
             else if(kind==="db"){for(var q=0;q<3;q++){c.beginPath();c.ellipse(w*.5,h*(.25+q*.22),w*.31,h*.12,0,0,6.283);c.stroke()}line(w*.19,h*.25,w*.19,h*.69);line(w*.81,h*.25,w*.81,h*.69)}
             else if(kind==="moon"){c.beginPath();c.moveTo(w*.65,h*.15);c.bezierCurveTo(w*.29,h*.17,w*.17,h*.7,w*.52,h*.86);c.bezierCurveTo(w*.37,h*.66,w*.41,h*.34,w*.65,h*.15);c.closePath();c.stroke()}
+            else if(kind==="sun"){c.beginPath();c.arc(w*.5,h*.5,w*.2,0,6.283);c.stroke();for(var si=0;si<8;si++){var sa=si*.785;line(w*.5+Math.cos(sa)*w*.29,h*.5+Math.sin(sa)*h*.29,w*.5+Math.cos(sa)*w*.42,h*.5+Math.sin(sa)*h*.42)}}
             else if(kind==="wave"){for(var z=0;z<7;z++){var hh=h*(.18+.65*Math.abs(Math.sin(z*1.7)));line(w*(.15+z*.115),h*.5-hh*.5,w*(.15+z*.115),h*.5+hh*.5)}}
             else if(kind==="windows"){for(var n=0;n<4;n++){var xx=n%2,yy=Math.floor(n/2);c.fillRect(w*(.12+xx*.4),h*(.12+yy*.4),w*.3,h*.3)}}
             else if(kind==="cloud"){c.beginPath();c.moveTo(w*.18,h*.66);c.bezierCurveTo(w*.08,h*.45,w*.28,h*.36,w*.39,h*.43);c.bezierCurveTo(w*.48,h*.16,w*.78,h*.26,w*.78,h*.46);c.bezierCurveTo(w*.96,h*.5,w*.88,h*.7,w*.7,h*.7);c.lineTo(w*.28,h*.7);c.stroke()}
@@ -123,12 +139,12 @@ ApplicationWindow {
             onPaint:{
                 var c=getContext("2d"),cx=width/2,cy=height/2,t=o.phase;c.reset();
                 var rad=Math.min(width*.27,height*.42);
-                for(var r=rad*.48;r<=rad*1.16;r+=rad*.12){c.strokeStyle=(r>rad*.75&&r<rad*1.03)?"#57f4ff":"#15788c";c.globalAlpha=(r>rad*.75&&r<rad*1.03)?.68:.3;c.lineWidth=(r>rad*.75&&r<rad*1.03)?1.6:1;c.beginPath();c.arc(cx,cy,r,t*(r%4+1),t*(r%4+1)+4.45);c.stroke()}
-                c.globalAlpha=.78;for(var i=0;i<86;i++){var a=i/86*6.283+t*.18,rr=rad*1.12+(i%7)*2.4;c.fillStyle=i%7===0?"#b6ffff":"#1594a7";c.fillRect(cx+Math.cos(a)*rr,cy+Math.sin(a)*rr,i%7===0?2:1,i%7===0?2:1)}
+                for(var r=rad*.48;r<=rad*1.16;r+=rad*.12){c.strokeStyle=root.orbColor;c.globalAlpha=(r>rad*.75&&r<rad*1.03)?.68:.3;c.lineWidth=(r>rad*.75&&r<rad*1.03)?1.6:1;c.beginPath();c.arc(cx,cy,r,t*(r%4+1),t*(r%4+1)+4.45);c.stroke()}
+                c.globalAlpha=.78;for(var i=0;i<86;i++){var a=i/86*6.283+t*.18,rr=rad*1.12+(i%7)*2.4;c.fillStyle=root.orbColor;c.fillRect(cx+Math.cos(a)*rr,cy+Math.sin(a)*rr,i%7===0?2:1,i%7===0?2:1)}
             }
             Connections { target:o; function onPhaseChanged(){ orbCanvas.requestPaint() } }
         }
-        Wave { anchors.left:parent.left; anchors.right:parent.right; anchors.verticalCenter:parent.verticalCenter; height:86 }
+        Wave { anchors.left:parent.left; anchors.right:parent.right; anchors.verticalCenter:parent.verticalCenter; height:86; active:root.talking }
     }
 
     Rectangle { anchors.fill:parent; radius:12; color:"#02070b"; z:-100 }
@@ -181,7 +197,7 @@ ApplicationWindow {
                     Panel { Layout.fillWidth:true; Layout.preferredHeight:250; clip:true
                         Canvas { anchors.fill:parent; opacity:.44; onPaint:{var c=getContext("2d");c.reset();var base=height*.42;for(var i=0;i<58;i++){var x=width*.37+i*width*.012,h=18+(i*37%105);c.fillStyle=i%4===0?"#0b3140":"#0a2632";c.fillRect(x,base-h,8+(i%3)*3,h);if(i%5===0){c.fillStyle="#1baab9";c.fillRect(x+3,base-h+9,1,2)}}var grad=c.createLinearGradient(0,0,0,height);grad.addColorStop(0,"#07131b00");grad.addColorStop(1,"#07131bee");c.fillStyle=grad;c.fillRect(0,0,width,height)} }
                         ColumnLayout { anchors.fill:parent; anchors.margins:18; spacing:12
-                            RowLayout{Layout.fillWidth:true;Rectangle{width:38;height:38;radius:19;color:"#50152a34";Glyph{anchors.centerIn:parent;width:23;height:23;kind:"moon";stroke:"#9bb7c5"}}ColumnLayout{spacing:1;Label{text:"Boa noite.";color:root.ink;font.pixelSize:23;font.bold:true}Label{text:"Estas são as coisas que merecem sua atenção agora.";color:root.muted;font.pixelSize:11}}Item{Layout.fillWidth:true}Mono{text:taskStore.tasks.length+" DEMANDAS"}}
+                            RowLayout{Layout.fillWidth:true;Rectangle{width:38;height:38;radius:19;color:"#50152a34";Glyph{anchors.centerIn:parent;width:23;height:23;kind:root.skyGlyph();stroke:"#9bb7c5"}}ColumnLayout{spacing:1;Label{text:root.greeting();color:root.ink;font.pixelSize:23;font.bold:true}Label{text:"Estas são as coisas que merecem sua atenção agora.";color:root.muted;font.pixelSize:11}}Item{Layout.fillWidth:true}Mono{text:taskStore.tasks.length+" DEMANDAS"}}
                             RowLayout{Layout.fillWidth:true;Layout.fillHeight:true;spacing:10
                                 Repeater{model:taskStore.tasks;Rectangle{property bool selected:taskStore.selectedTask&&taskStore.selectedTask.id===modelData.id;Layout.fillWidth:true;Layout.fillHeight:true;radius:9;color:selected?"#a8122d38":"#8a0d1c24";border.width:1;border.color:selected?root.cyan:"#362b4a54";Rectangle{visible:parent.selected;anchors.fill:parent;anchors.margins:2;radius:7;color:"transparent";border.width:4;border.color:"#1a19e7f3"}ColumnLayout{anchors.fill:parent;anchors.margins:12;spacing:6;Glyph{kind:"folder";stroke:parent.parent.selected?root.cyan:"#a8bbc4";Layout.preferredWidth:22;Layout.preferredHeight:22}Label{text:modelData.title;color:root.ink;font.bold:true;font.pixelSize:13;elide:Text.ElideRight;Layout.fillWidth:true}Item{Layout.fillHeight:true}RowLayout{spacing:7;Rectangle{width:68;height:20;radius:10;color:"#8a17303a";Mono{anchors.centerIn:parent;text:modelData.status;font.pixelSize:7}}Rectangle{width:54;height:20;radius:10;color:modelData.priority==="ALTA"?"#9a4b2029":modelData.priority==="BAIXA"?"#9a173d2a":"#9a4a3a17";Mono{anchors.centerIn:parent;text:modelData.priority;color:modelData.priority==="ALTA"?"#ff7f88":modelData.priority==="BAIXA"?"#6de790":"#e4be51";font.pixelSize:7}}}Mono{text:modelData.dueText||"Sem prazo";font.pixelSize:8}}MouseArea{anchors.fill:parent;cursorShape:Qt.PointingHandCursor;onClicked:taskStore.selectTask(modelData.id)}}}
                             }
@@ -191,13 +207,13 @@ ApplicationWindow {
                     Panel { Layout.fillWidth:true; Layout.fillHeight:true
                         ColumnLayout{anchors.fill:parent;anchors.margins:18;spacing:12
                             RowLayout{Layout.fillWidth:true;ColumnLayout{spacing:2;Mono{text:"DEMANDA ATUAL"}Label{text:taskStore.selectedTask.title||"Nenhuma demanda";color:root.ink;font.pixelSize:22} }Item{Layout.fillWidth:true}Rectangle{width:105;height:28;radius:14;color:"#0b2b25";border.color:"#1a694d";Mono{anchors.centerIn:parent;text:"●  "+(taskStore.selectedTask.status||"—");color:root.green}}}
-                            RowLayout{Layout.fillWidth:true;spacing:10;Repeater{model:[{k:"PRAZO",v:taskStore.selectedTask.dueText||"Sem prazo",s:"Prazo informado",i:"clock"},{k:"STATUS",v:taskStore.selectedTask.status||"—",s:"Persistido localmente",i:"tasks"},{k:"PRIORIDADE",v:taskStore.selectedTask.priority||"NORMAL",s:"Banco SQLite",i:"brain"}];Rectangle{Layout.fillWidth:true;implicitHeight:75;radius:9;color:root.panel2;border.color:root.line;RowLayout{anchors.fill:parent;anchors.margins:10;Glyph{kind:modelData.i;stroke:"#a9bdc6";Layout.preferredWidth:22;Layout.preferredHeight:22}ColumnLayout{Mono{text:modelData.k}Label{text:modelData.v;color:root.ink;font.pixelSize:13;font.bold:true}Mono{text:modelData.s;font.pixelSize:8}}}}}}
+                            RowLayout{Layout.fillWidth:true;spacing:10;Repeater{model:[{k:"PRAZO",v:taskStore.selectedTask.dueText||"Sem prazo",s:"Prazo informado",i:"clock"},{k:"ANEXOS",v:taskStore.selectedAttachments.length+" arquivo(s)",s:"Armazenados localmente",i:"tasks"},{k:"PRIORIDADE",v:taskStore.selectedTask.priority||"NORMAL",s:"Banco SQLite",i:"brain"}];Rectangle{Layout.fillWidth:true;implicitHeight:75;radius:9;color:root.panel2;border.color:root.line;RowLayout{anchors.fill:parent;anchors.margins:10;Glyph{kind:modelData.i;stroke:"#a9bdc6";Layout.preferredWidth:22;Layout.preferredHeight:22}ColumnLayout{Mono{text:modelData.k}Label{text:modelData.v;color:root.ink;font.pixelSize:13;font.bold:true}Mono{text:modelData.s;font.pixelSize:8}}}}}}
                             Mono{text:"DESCRIÇÃO"}
                             Label{text:taskStore.selectedTask.description||"Sem descrição.";color:root.muted;font.pixelSize:11;wrapMode:Text.WordWrap;Layout.fillWidth:true}
                             Rectangle{Layout.fillWidth:true;height:1;color:root.line}
                             RowLayout{Layout.fillWidth:true;Mono{text:"✦  ASSISTANT INSIGHT";color:root.ink}Item{Layout.fillWidth:true}CButton{text:"Ver detalhes";Layout.preferredWidth:96;Layout.preferredHeight:30}}
                             Label{Layout.fillWidth:true;Layout.fillHeight:true;text:"Para concluir a cotação com mais eficiência, recomendo priorizar fornecedores\nque já passaram pelo processo de homologação e possuem histórico de entrega.\nPosso comparar automaticamente as propostas assim que os arquivos forem enviados.";color:root.muted;font.pixelSize:11;wrapMode:Text.WordWrap}
-                            RowLayout{Layout.fillWidth:true;spacing:10;CButton{text:taskStore.selectedTask.status==="CONCLUÍDA"?"Reabrir demanda":"Concluir demanda";accent:true;Layout.preferredWidth:210;onClicked:if(taskStore.selectedTask.id)taskStore.toggleDone(taskStore.selectedTask.id)}CButton{text:"Editar";Layout.fillWidth:true;onClicked:editTaskDialog.prepare()}CButton{text:"Excluir";Layout.preferredWidth:82;onClicked:deleteDialog.open()}}
+                            RowLayout{Layout.fillWidth:true;spacing:10;CButton{text:taskStore.selectedTask.status==="CONCLUÍDA"?"Reabrir":"Concluir";accent:true;Layout.preferredWidth:155;onClicked:if(taskStore.selectedTask.id)taskStore.toggleDone(taskStore.selectedTask.id)}CButton{text:"Anexar";Layout.preferredWidth:100;onClicked:if(taskStore.selectedTask.id)attachmentDialog.open()}CButton{text:"Editar";Layout.fillWidth:true;onClicked:editTaskDialog.prepare()}CButton{text:"Excluir";Layout.preferredWidth:82;onClicked:deleteDialog.open()}}
                         }
                     }
                 }
@@ -205,11 +221,11 @@ ApplicationWindow {
                 // RIGHT NYRA
                 Rectangle { Layout.preferredWidth:390; Layout.fillHeight:true; radius:14; border.color:"#3332525d";gradient:Gradient{GradientStop{position:0;color:"#ce0b1d27"}GradientStop{position:.6;color:"#ad07151d"}GradientStop{position:1;color:"#ca091922"}}
                     ColumnLayout{anchors.fill:parent;anchors.margins:16;spacing:10
-                        RowLayout{Layout.fillWidth:true;ColumnLayout{spacing:0;Label{text:"NYRA";color:root.ink;font.pixelSize:24;font.letterSpacing:2}Mono{text:"PERSONAL INTELLIGENCE"}}Item{Layout.fillWidth:true}CButton{Layout.preferredWidth:38;Layout.preferredHeight:34;Glyph{anchors.centerIn:parent;width:18;height:18;kind:"sliders";stroke:"#9fb5bf"}}}
+                        RowLayout{Layout.fillWidth:true;ColumnLayout{spacing:0;Label{text:"NYRA";color:root.ink;font.pixelSize:24;font.letterSpacing:2}Mono{text:"PERSONAL INTELLIGENCE"}}Item{Layout.fillWidth:true}CButton{Layout.preferredWidth:38;Layout.preferredHeight:34;Glyph{anchors.centerIn:parent;width:18;height:18;kind:"sliders";stroke:"#9fb5bf"}onClicked:root.currentSection="Configurações"}}
                         Orb{Layout.fillWidth:true;Layout.preferredHeight:220}
-                        Rectangle{Layout.fillWidth:true;implicitHeight:50;radius:8;color:"#8607131a";border.color:"#3b31515b";RowLayout{anchors.fill:parent;anchors.margins:10;Rectangle{width:7;height:7;radius:4;color:root.green}Mono{text:"ESTADO // ";color:"#a8bbc3"}Mono{text:"DISPONÍVEL";color:root.cyan}Item{Layout.fillWidth:true}Wave{width:108;active:root.talking}}}
+                        Rectangle{Layout.fillWidth:true;implicitHeight:50;radius:8;color:"#8607131a";border.color:"#3b31515b";RowLayout{anchors.fill:parent;anchors.margins:10;Rectangle{width:7;height:7;radius:4;color:root.listening?root.green:root.cyan}Mono{text:"ESTADO // ";color:"#a8bbc3"}Mono{text:root.talking?"FALANDO":root.listening?"ESCUTANDO":"DISPONÍVEL";color:root.orbColor}Item{Layout.fillWidth:true}Wave{width:108;active:true}}}
                         Rectangle{Layout.fillWidth:true;implicitHeight:98;radius:9;color:"#8f0b1a22";border.color:"#3b31515b";RowLayout{anchors.fill:parent;anchors.margins:11;Rectangle{width:48;height:48;radius:24;color:"#06151c";Image{anchors.fill:parent;anchors.margins:2;source:"../assets/nyra-orb.png";fillMode:Image.PreserveAspectCrop;smooth:true}}Label{Layout.fillWidth:true;text:root.assistantText;color:root.ink;font.pixelSize:11;wrapMode:Text.WordWrap}Mono{text:"22:42";font.pixelSize:7}}}
-                        Rectangle{Layout.fillWidth:true;implicitHeight:36;radius:7;color:"#2b1118";border.color:"#6b2632";RowLayout{anchors.fill:parent;anchors.margins:8;Mono{text:"▣  NETWORK // LOCKED";color:root.red}Item{Layout.fillWidth:true}Mono{text:"Internet bloqueada";color:"#c06671"}}}
+                        Rectangle{Layout.fillWidth:true;implicitHeight:36;radius:7;color:root.networkUnlocked?"#102b25":"#2b1118";border.color:root.networkUnlocked?"#28725a":"#6b2632";RowLayout{anchors.fill:parent;anchors.margins:8;Mono{text:"▣  NETWORK // "+(root.networkUnlocked?"UNLOCKED":"LOCKED");color:root.networkUnlocked?root.green:root.red}Item{Layout.fillWidth:true}Mono{text:root.networkUnlocked?"Internet autorizada":"Internet bloqueada";color:root.networkUnlocked?"#71dca6":"#c06671"}Switch{checked:root.networkUnlocked;onToggled:root.networkUnlocked=checked}}}
                         RowLayout{Layout.fillWidth:true;Mono{text:"MEMÓRIA RECENTE";color:root.ink}Item{Layout.fillWidth:true}Mono{text:"Ver tudo"}}
                         Repeater{model:["Você pediu para priorizar fornecedores\ncom histórico de entrega.","Preferência: Respostas objetivas e com\ntabelas comparativas.","Projeto 3DRN Store em andamento.\nFoco em automação."];RowLayout{Layout.fillWidth:true;Rectangle{width:28;height:28;radius:5;color:"#0c222b";Mono{anchors.centerIn:parent;text:"□"}}Label{Layout.fillWidth:true;text:modelData;color:root.muted;font.pixelSize:9;wrapMode:Text.WordWrap}Mono{text:index===0?"22:10":index===1?"21:47":"Ontem";font.pixelSize:7}}}
                         Item{Layout.fillHeight:true}
@@ -220,7 +236,7 @@ ApplicationWindow {
             Rectangle{id:commandDock;anchors.left:parent.left;anchors.right:parent.right;anchors.bottom:parent.bottom;height:76;radius:12;border.width:1;border.color:"#5a34717e";gradient:Gradient{GradientStop{position:0;color:"#d0143543"}GradientStop{position:.18;color:"#c00c2632"}GradientStop{position:1;color:"#d0061821"}}
                 Rectangle{anchors.fill:parent;anchors.margins:2;radius:10;color:"transparent";border.width:1;border.color:"#3024dbea"}
                 RowLayout{anchors.fill:parent;spacing:0
-                    RowLayout{Layout.fillWidth:true;Layout.fillHeight:true;Layout.leftMargin:26;Layout.rightMargin:18;spacing:15;Wave{Layout.preferredWidth:34;Layout.preferredHeight:36;active:root.talking}Rectangle{Layout.preferredWidth:1;Layout.preferredHeight:42;color:"#8119e7f3"}Label{text:"> Fale ou digite um comando...";color:"#9db1ba";font.pixelSize:14;Layout.fillWidth:true}Rectangle{Layout.preferredWidth:1;Layout.preferredHeight:30;color:"#303f6470"}Mono{text:"ESC para cancelar"}Item{Layout.preferredWidth:82;Layout.preferredHeight:66;Canvas{anchors.fill:parent;opacity:.65;onPaint:{var c=getContext("2d");c.reset();c.fillStyle=root.cyan;for(var i=0;i<12;i++){var a=i/12*6.283,r=30+(i%3)*3;c.globalAlpha=.12+(i%4)*.08;c.beginPath();c.arc(width/2+Math.cos(a)*r,height/2+Math.sin(a)*r,i%4===0?2:1,0,6.283);c.fill()}}Rectangle{anchors.centerIn:parent;width:60;height:60;radius:30;color:"#76103442";border.width:1;border.color:"#6e19ddea";Rectangle{anchors.centerIn:parent;width:40;height:40;radius:20;color:"#c20a5363";border.width:1;border.color:"#7429eaf4";Glyph{anchors.centerIn:parent;width:20;height:20;kind:"mic";stroke:"#d5ffff"}}}Wave{anchors.left:parent.left;anchors.right:parent.right;anchors.verticalCenter:parent.verticalCenter;height:22;active:root.talking;z:-1}}CButton{text:"⋮";Layout.preferredWidth:44;Layout.preferredHeight:44}}}
+                    RowLayout{Layout.fillWidth:true;Layout.fillHeight:true;Layout.leftMargin:26;Layout.rightMargin:18;spacing:15;Item{Layout.preferredWidth:34;Layout.preferredHeight:36;Wave{anchors.fill:parent;active:true}MouseArea{anchors.fill:parent;cursorShape:Qt.PointingHandCursor;onClicked:root.submitCommand()}}Rectangle{Layout.preferredWidth:1;Layout.preferredHeight:42;color:"#8119e7f3"}TextField{id:commandInput;Layout.fillWidth:true;placeholderText:"> Fale ou digite um comando...";color:root.ink;placeholderTextColor:"#8299a3";font.pixelSize:14;background:Item{} onAccepted:root.submitCommand()}Rectangle{Layout.preferredWidth:1;Layout.preferredHeight:30;color:"#303f6470"}Mono{text:root.listening?"MIC ATIVO":"ESC para cancelar";color:root.listening?root.green:root.muted}Item{id:micControl;Layout.preferredWidth:82;Layout.preferredHeight:66;Canvas{id:micDots;anchors.fill:parent;scale:1+(audioMonitor?audioMonitor.level:0)*.18;Behavior on scale{NumberAnimation{duration:70}}opacity:root.listening ? .95 : .45;RotationAnimation on rotation{from:0;to:360;duration:root.listening?2200:7000;loops:Animation.Infinite;running:true}onPaint:{var c=getContext("2d");c.reset();c.fillStyle=root.orbColor;for(var i=0;i<12;i++){var a=i/12*6.283,r=30+(i%3)*3;c.globalAlpha=.12+(i%4)*.08;c.beginPath();c.arc(width/2+Math.cos(a)*r,i%2?height/2+Math.sin(a)*r:height/2+Math.sin(a)*(r+4),i%4===0?2:1,0,6.283);c.fill()}}Rectangle{anchors.centerIn:parent;width:60;height:60;radius:30;color:"#76103442";border.width:1;border.color:root.orbColor;Rectangle{anchors.centerIn:parent;width:40;height:40;radius:20;color:root.listening?"#c21c6854":"#c20a5363";border.width:1;border.color:root.orbColor;Glyph{anchors.centerIn:parent;width:20;height:20;kind:"mic";stroke:"#d5ffff"}}}Wave{anchors.left:parent.left;anchors.right:parent.right;anchors.verticalCenter:parent.verticalCenter;height:22;active:root.listening;z:-1}MouseArea{anchors.fill:parent;cursorShape:Qt.PointingHandCursor;onClicked:audioMonitor.setListening(!root.listening)}}CButton{text:"⋮";Layout.preferredWidth:44;Layout.preferredHeight:44}}}
                 }
             }
             Panel { z:30;visible:root.currentSection!=="Hoje";anchors.left:parent.left;anchors.leftMargin:289;anchors.right:parent.right;anchors.rightMargin:12;anchors.top:parent.top;anchors.topMargin:12;anchors.bottom:commandDock.top;anchors.bottomMargin:10
@@ -272,11 +288,11 @@ ApplicationWindow {
                     Column { anchors.fill:parent; anchors.margins:14; spacing:7
                         Row { width:parent.width; height:34
                             Column { width:parent.width-40; spacing:1;Label{text:"NYRA";color:root.ink;font.pixelSize:20;font.bold:true}Mono{text:"PERSONAL INTELLIGENCE";font.pixelSize:7} }
-                            CButton { width:36;height:32;Glyph{anchors.centerIn:parent;width:18;height:18;kind:"sliders";stroke:"#9fb5bf"} }
+                            CButton { width:36;height:32;Glyph{anchors.centerIn:parent;width:18;height:18;kind:"sliders";stroke:"#9fb5bf"}onClicked:root.currentSection="Configurações" }
                         }
                         Orb { width:parent.width; height:155 }
                         Rectangle { width:parent.width;height:55;radius:9;color:"#07131a";border.color:root.line
-                            Row { anchors.fill:parent;anchors.margins:11;spacing:10;Mono{anchors.verticalCenter:parent.verticalCenter;text:"●  ESTADO // DISPONÍVEL";color:root.green;font.pixelSize:8}Item{width:Math.max(10,parent.width-245);height:1}Wave{width:100;height:30;active:root.talking} }
+                            Row { anchors.fill:parent;anchors.margins:11;spacing:10;Mono{anchors.verticalCenter:parent.verticalCenter;text:"●  ESTADO // "+(root.talking?"FALANDO":root.listening?"ESCUTANDO":"DISPONÍVEL");color:root.orbColor;font.pixelSize:8}Item{width:Math.max(10,parent.width-245);height:1}Wave{width:100;height:30;active:true} }
                         }
                     }
                 }
@@ -299,7 +315,7 @@ ApplicationWindow {
                     width:parent.width;height:335
                     Column { anchors.fill:parent;anchors.margins:14;spacing:9
                         Mono{text:"FOCUS // HOJE";font.pixelSize:8}
-                        Label{text:"Boa noite.";color:root.ink;font.pixelSize:22;font.bold:true}
+                        Label{text:root.greeting();color:root.ink;font.pixelSize:22;font.bold:true}
                         Label{width:parent.width;text:"Estas são as coisas que merecem sua atenção agora.";color:root.muted;font.pixelSize:12;wrapMode:Text.WordWrap}
                         Repeater { model:taskStore.tasks.slice(0,3)
                             Rectangle { property bool selected:taskStore.selectedTask.id===modelData.id;width:parent.width;height:65;radius:9;color:selected?"#102a2c":"#08141a";border.color:selected?root.cyan:root.line
@@ -321,30 +337,34 @@ ApplicationWindow {
                 }
                 Rectangle {
                     width:parent.width;height:64;radius:10;color:"#061118";border.color:root.line
-                    Row{anchors.fill:parent;anchors.margins:9;spacing:9;Wave{width:25;height:30;anchors.verticalCenter:parent.verticalCenter}Label{width:parent.width-112;anchors.verticalCenter:parent.verticalCenter;text:"> Fale ou digite um comando...";elide:Text.ElideRight;color:root.muted;font.pixelSize:11}Rectangle{width:44;height:44;radius:22;color:"#9a103845";border.width:1;border.color:"#6719e7f3";Glyph{anchors.centerIn:parent;width:18;height:18;kind:"mic";stroke:"#d5ffff"}}}
+                    Row{anchors.fill:parent;anchors.margins:9;spacing:9;Wave{width:25;height:30;anchors.verticalCenter:parent.verticalCenter;active:true}TextField{width:parent.width-112;anchors.verticalCenter:parent.verticalCenter;placeholderText:"> Fale ou digite um comando...";color:root.ink;placeholderTextColor:root.muted;font.pixelSize:11;background:Item{} onAccepted:{if(text.trim()){root.assistantText="Comando registrado: "+text;clear()}}}Rectangle{width:44;height:44;radius:22;scale:1+(audioMonitor?audioMonitor.level:0)*.15;color:root.listening?"#a51b654f":"#9a103845";border.width:1;border.color:root.orbColor;Glyph{anchors.centerIn:parent;width:18;height:18;kind:"mic";stroke:"#d5ffff"}MouseArea{anchors.fill:parent;onClicked:audioMonitor.setListening(!root.listening)}}}
                 }
                 Item{width:1;height:10}
             }
         }
     }
 
+    FileDialog{id:attachmentDialog;title:"Selecionar anexos";fileMode:FileDialog.OpenFiles;onAccepted:{for(var i=0;i<selectedFiles.length;i++){taskStore.addAttachment(taskStore.selectedTask.id,selectedFiles[i].toString())}}}
     Dialog{
-        id:newTaskDialog;title:"Nova demanda";modal:true;width:Math.min(root.width-40,520);anchors.centerIn:Overlay.overlay
-        standardButtons:Dialog.Ok|Dialog.Cancel
-        onAccepted:{taskStore.addTask(newTitle.text,newDescription.text,newPriority.currentText,newDue.text);newTitle.clear();newDescription.clear();newDue.clear();newPriority.currentIndex=0;root.currentSection="Hoje"}
-        contentItem:ColumnLayout{spacing:10;TextField{id:newTitle;Layout.fillWidth:true;placeholderText:"Título da demanda"}TextArea{id:newDescription;Layout.fillWidth:true;Layout.preferredHeight:100;placeholderText:"Descrição";wrapMode:TextEdit.WordWrap}RowLayout{Layout.fillWidth:true;ComboBox{id:newPriority;model:["NORMAL","ALTA","BAIXA"];Layout.preferredWidth:140}TextField{id:newDue;Layout.fillWidth:true;placeholderText:"Prazo, por exemplo: Amanhã, 18:00"}}}
+        id:newTaskDialog;modal:true;width:Math.min(root.width-40,540);anchors.centerIn:Overlay.overlay;padding:18
+        background:Rectangle{radius:12;border.width:1;border.color:"#8a19e7f3";gradient:Gradient{GradientStop{position:0;color:"#f0143543"}GradientStop{position:1;color:"#f0061720"}}Rectangle{anchors.fill:parent;anchors.margins:3;radius:9;color:"transparent";border.width:3;border.color:"#1819e7f3"}}
+        header:Rectangle{implicitHeight:54;color:"transparent";Label{anchors.left:parent.left;anchors.leftMargin:20;anchors.verticalCenter:parent.verticalCenter;text:"＋  NOVA DEMANDA";color:root.cyan;font.bold:true;font.pixelSize:15}}
+        contentItem:ColumnLayout{spacing:12;CField{id:newTitle;Layout.fillWidth:true;placeholderText:"Título da demanda"}CArea{id:newDescription;Layout.fillWidth:true;Layout.preferredHeight:110;placeholderText:"Descrição"}RowLayout{Layout.fillWidth:true;ComboBox{id:newPriority;model:["NORMAL","ALTA","BAIXA"];Layout.preferredWidth:145}CField{id:newDue;Layout.fillWidth:true;placeholderText:"Prazo, por exemplo: Amanhã, 18:00"}}}
+        footer:RowLayout{height:58;spacing:10;Item{Layout.fillWidth:true}CButton{text:"Cancelar";Layout.preferredWidth:110;onClicked:newTaskDialog.close()}CButton{text:"Criar demanda";accent:true;Layout.preferredWidth:150;onClicked:{taskStore.addTask(newTitle.text,newDescription.text,newPriority.currentText,newDue.text);newTitle.clear();newDescription.clear();newDue.clear();newPriority.currentIndex=0;root.currentSection="Hoje";newTaskDialog.close()}}}
     }
     Dialog{
-        id:editTaskDialog;title:"Editar demanda";modal:true;width:Math.min(root.width-40,520);anchors.centerIn:Overlay.overlay
-        standardButtons:Dialog.Save|Dialog.Cancel
+        id:editTaskDialog;modal:true;width:Math.min(root.width-40,540);anchors.centerIn:Overlay.overlay;padding:18
         function prepare(){if(!taskStore.selectedTask.id)return;editTitle.text=taskStore.selectedTask.title||"";editDescription.text=taskStore.selectedTask.description||"";editPriority.currentIndex=Math.max(0,["NORMAL","ALTA","BAIXA"].indexOf(taskStore.selectedTask.priority));editDue.text=taskStore.selectedTask.dueText||"";open()}
-        onAccepted:taskStore.updateTask(taskStore.selectedTask.id,editTitle.text,editDescription.text,editPriority.currentText,editDue.text)
-        contentItem:ColumnLayout{spacing:10;TextField{id:editTitle;Layout.fillWidth:true;placeholderText:"Título da demanda"}TextArea{id:editDescription;Layout.fillWidth:true;Layout.preferredHeight:100;placeholderText:"Descrição";wrapMode:TextEdit.WordWrap}RowLayout{Layout.fillWidth:true;ComboBox{id:editPriority;model:["NORMAL","ALTA","BAIXA"];Layout.preferredWidth:140}TextField{id:editDue;Layout.fillWidth:true;placeholderText:"Prazo"}}}
+        background:Rectangle{radius:12;border.width:1;border.color:"#8a19e7f3";gradient:Gradient{GradientStop{position:0;color:"#f0143543"}GradientStop{position:1;color:"#f0061720"}}Rectangle{anchors.fill:parent;anchors.margins:3;radius:9;color:"transparent";border.width:3;border.color:"#1819e7f3"}}
+        header:Rectangle{implicitHeight:54;color:"transparent";Label{anchors.left:parent.left;anchors.leftMargin:20;anchors.verticalCenter:parent.verticalCenter;text:"✎  EDITAR DEMANDA";color:root.cyan;font.bold:true;font.pixelSize:15}}
+        contentItem:ColumnLayout{spacing:12;CField{id:editTitle;Layout.fillWidth:true;placeholderText:"Título da demanda"}CArea{id:editDescription;Layout.fillWidth:true;Layout.preferredHeight:110;placeholderText:"Descrição"}RowLayout{Layout.fillWidth:true;ComboBox{id:editPriority;model:["NORMAL","ALTA","BAIXA"];Layout.preferredWidth:145}CField{id:editDue;Layout.fillWidth:true;placeholderText:"Prazo"}}}
+        footer:RowLayout{height:58;spacing:10;Item{Layout.fillWidth:true}CButton{text:"Cancelar";Layout.preferredWidth:110;onClicked:editTaskDialog.close()}CButton{text:"Salvar alterações";accent:true;Layout.preferredWidth:160;onClicked:{taskStore.updateTask(taskStore.selectedTask.id,editTitle.text,editDescription.text,editPriority.currentText,editDue.text);editTaskDialog.close()}}}
     }
     Dialog{
-        id:deleteDialog;title:"Excluir demanda?";modal:true;width:380;anchors.centerIn:Overlay.overlay
-        standardButtons:Dialog.Yes|Dialog.No
-        onAccepted:if(taskStore.selectedTask.id)taskStore.deleteTask(taskStore.selectedTask.id)
-        contentItem:Label{text:"Esta ação remove a demanda do banco local.";color:root.ink;padding:14}
+        id:deleteDialog;modal:true;width:400;anchors.centerIn:Overlay.overlay;padding:18
+        background:Rectangle{radius:12;color:"#f01b0d13";border.width:1;border.color:"#b8ff5867";Rectangle{anchors.fill:parent;anchors.margins:3;radius:9;color:"transparent";border.width:3;border.color:"#24ff5867"}}
+        header:Rectangle{implicitHeight:52;color:"transparent";Label{anchors.left:parent.left;anchors.leftMargin:20;anchors.verticalCenter:parent.verticalCenter;text:"EXCLUIR DEMANDA?";color:root.red;font.bold:true;font.pixelSize:15}}
+        contentItem:Label{text:"Esta ação remove a demanda e seus anexos do banco local.";color:root.ink;wrapMode:Text.WordWrap}
+        footer:RowLayout{height:58;spacing:10;Item{Layout.fillWidth:true}CButton{text:"Cancelar";Layout.preferredWidth:110;onClicked:deleteDialog.close()}CButton{text:"Excluir";Layout.preferredWidth:110;onClicked:{if(taskStore.selectedTask.id)taskStore.deleteTask(taskStore.selectedTask.id);deleteDialog.close()}}}
     }
 }
