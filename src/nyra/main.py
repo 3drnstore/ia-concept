@@ -6,11 +6,12 @@ import ctypes
 from pathlib import Path
 
 from PySide6.QtCore import QTimer, QUrl
-from PySide6.QtGui import QGuiApplication, QIcon
+from PySide6.QtGui import QFont, QGuiApplication, QIcon
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 
 from .ai_core import AiCore
+from .audio_monitor import AudioMonitor
 from .task_store import TaskStore
 from .system_monitor import SystemMonitor
 
@@ -26,8 +27,10 @@ def main() -> int:
 
     QQuickStyle.setStyle("Fusion")
     app = QGuiApplication(sys.argv)
+    app.setFont(QFont("OCR A Extended", 10))
     app.setApplicationName("Nyra")
     app.setOrganizationName("NYRA")
+    app.setOrganizationDomain("nyra.local")
     icon_path = Path(__file__).resolve().parent / "assets" / "nyra.ico"
     if icon_path.exists():
         app.setWindowIcon(QIcon(str(icon_path)))
@@ -36,9 +39,11 @@ def main() -> int:
     task_store = TaskStore()
     system_monitor = SystemMonitor()
     ai_core = AiCore()
+    audio_monitor = AudioMonitor()
     engine.rootContext().setContextProperty("taskStore", task_store)
     engine.rootContext().setContextProperty("systemMonitor", system_monitor)
     engine.rootContext().setContextProperty("aiCore", ai_core)
+    engine.rootContext().setContextProperty("audioMonitor", audio_monitor)
 
     qml_path = Path(__file__).resolve().parent / "ui" / "ConceptShell.qml"
     engine.load(QUrl.fromLocalFile(str(qml_path)))

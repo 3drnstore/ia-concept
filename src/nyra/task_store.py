@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import sqlite3
 from pathlib import Path
 from typing import Any
@@ -11,12 +12,15 @@ from PySide6.QtCore import QObject, Property, Signal, Slot
 class TaskStore(QObject):
     tasksChanged = Signal()
     selectedTaskChanged = Signal()
+    attachmentsChanged = Signal()
 
     def __init__(self) -> None:
         super().__init__()
         base = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "NYRA"
         base.mkdir(parents=True, exist_ok=True)
         self._db_path = base / "nyra.sqlite3"
+        self._attachments_dir = base / "attachments"
+        self._attachments_dir.mkdir(parents=True, exist_ok=True)
         self._tasks: list[dict[str, Any]] = []
         self._selected_id: int | None = None
         self._initialize_db()
@@ -40,6 +44,18 @@ class TaskStore(QObject):
                     due_text TEXT NOT NULL DEFAULT '',
                     status TEXT NOT NULL DEFAULT 'ATIVA',
                     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            con.execute(
+                """
+                CREATE TABLE IF NOT EXISTS attachments (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    task_id INTEGER NOT NULL,
+                    name TEXT NOT NULL,
+                    path TEXT NOT NULL,
+                    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY(task_id) REFERENCES tasks(id) ON DELETE CASCADE
                 )
                 """
             )
@@ -98,6 +114,21 @@ class TaskStore(QObject):
                 return task
         return self._tasks[0] if self._tasks else {}
 
+    @Property("QVariantList", notify=attachmentsChanged)
+    def selectedAttachments(self) -> list[dict[str, Any]]:
+        task = self.selectedTask
+        if not task:
+            return []
+        with self._connect() as con:
+            rows = con.execute(
+                "SELECT id, name, path, created_at FROM attachments WHERE task_id = ? ORDER BY id DESC",
+                (task["id"],),
+            ).fetchall()
+        return [
+            {"id": row["id"], "name": row["name"], "path": row["path"], "createdAt": row["created_at"]}
+            for row in rows
+        ]
+
     @Slot()
     def refresh(self) -> None:
         with self._connect() as con:
@@ -109,6 +140,7 @@ class TaskStore(QObject):
             self._selected_id = self._tasks[0]["id"]
         self.tasksChanged.emit()
         self.selectedTaskChanged.emit()
+        self.attachmentsChanged.emit()
 
     @Slot(int)
     def selectTask(self, task_id: int) -> None:
@@ -116,6 +148,7 @@ class TaskStore(QObject):
             return
         self._selected_id = task_id
         self.selectedTaskChanged.emit()
+        self.attachmentsChanged.emit()
 
     @Slot(str, str, str, str)
     def addTask(self, title: str, description: str = "", priority: str = "NORMAL", due_text: str = "") -> None:
@@ -169,7 +202,43 @@ class TaskStore(QObject):
     @Slot(int)
     def deleteTask(self, task_id: int) -> None:
         with self._connect() as con:
+            paths = con.execute("SELECT path FROM attachments WHERE task_id = ?", (task_id,)).fetchall()
+            con.execute("DELETE FROM attachments WHERE task_id = ?", (task_id,))
             con.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
+        for row in paths:
+            Path(row["path"]).unlink(missing_ok=True)
+        shutil.rmtree(self._attachments_dir / str(task_id), ignore_errors=True)
         if self._selected_id == task_id:
             self._selected_id = None
         self.refresh()
+
+    @Slot(int, str)
+    def addAttachment(self, task_id: int, source_path: str) -> None:
+        if source_path.startswith("file:///"):
+            source_path = source_path[8:]
+        source = Path(source_path)
+        if not source.is_file():
+            return
+        target_dir = self._attachments_dir / str(task_id)
+        target_dir.mkdir(parents=True, exist_ok=True)
+        target = target_dir / source.name
+        counter = 1
+        while target.exists():
+            target = target_dir / f"{source.stem}-{counter}{source.suffix}"
+            counter += 1
+        shutil.copy2(source, target)
+        with self._connect() as con:
+            con.execute(
+                "INSERT INTO attachments(task_id, name, path) VALUES (?, ?, ?)",
+                (task_id, target.name, str(target)),
+            )
+        self.attachmentsChanged.emit()
+
+    @Slot(int)
+    def removeAttachment(self, attachment_id: int) -> None:
+        with self._connect() as con:
+            row = con.execute("SELECT path FROM attachments WHERE id = ?", (attachment_id,)).fetchone()
+            con.execute("DELETE FROM attachments WHERE id = ?", (attachment_id,))
+        if row:
+            Path(row["path"]).unlink(missing_ok=True)
+        self.attachmentsChanged.emit()
