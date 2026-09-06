@@ -81,15 +81,24 @@ jobs:
           python3 host/nuwe-mapa/patch_osmand.py android
           python3 host/nuwe-mapa/patch_multignss.py android
           python3 host/nuwe-mapa/fruit_aero_skin.py android
+          python3 host/nuwe-mapa/nuwe_ui_v3.py android
 
-      - name: Verify branding before build
+      - name: Verify Nuwe UI before build
         shell: bash
         run: |
           grep -q 'android:label="Nuwe Mapa"' android/OsmAnd/AndroidManifest.xml
           grep -q 'applicationId "app.nuwe.mapa"' android/OsmAnd/build.gradle
-          grep -q 'versionName "0.2.0"' android/OsmAnd/build.gradle
-          grep -q 'NUWE MAPA' android/OsmAnd/res/layout/map_hud_layout.xml
-          grep -q 'nuwe_glass_panel_dark' android/OsmAnd/res/layout/main.xml
+          grep -q 'versionName "0.3.0"' android/OsmAnd/build.gradle
+          test -f android/OsmAnd/res/mipmap-anydpi-v26/nuwe_launcher.xml
+          test -f android/OsmAnd/res/drawable/nuwe_ic_car.xml
+          test -f android/OsmAnd/res/drawable/nuwe_ic_bike.xml
+          test -f android/OsmAnd/res/drawable/nuwe_ic_hike.xml
+          grep -q 'values.add(ApplicationMode.CAR)' android/OsmAnd/src/net/osmand/plus/activities/actions/AppModeDialog.java
+          grep -q 'WEATHER_ID.equals(id)' android/OsmAnd/src/net/osmand/plus/configmap/ConfigureMapMenu.java
+          if grep -q 'MULTI-GNSS' android/OsmAnd/res/layout/map_hud_layout.xml; then
+            echo 'Decorative MULTI-GNSS pill still present' >&2
+            exit 1
+          fi
 
       - name: Grant Gradle permission
         working-directory: ./android
@@ -121,18 +130,19 @@ jobs:
             echo 'No APK produced.' >&2
             exit 1
           fi
-          cp "$APK" dist/Nuwe-Mapa-0.2.0-Fruit-Aero-arm64-debug.apk
+          cp "$APK" dist/Nuwe-Mapa-0.3.0-UI-Nova-arm64-debug.apk
           cp BUILD_VARIANT.txt dist/BUILD_VARIANT.txt
           cp android/NUWE_MAPA_BUILD_NOTICE.txt dist/NUWE_MAPA_BUILD_NOTICE.txt
           cp android/NUWE_MAPA_MULTIGNSS.txt dist/NUWE_MAPA_MULTIGNSS.txt
           cp android/NUWE_FRUIT_AERO_NOTICE.txt dist/NUWE_FRUIT_AERO_NOTICE.txt
-          sha256sum dist/Nuwe-Mapa-0.2.0-Fruit-Aero-arm64-debug.apk > dist/SHA256.txt
+          cp android/NUWE_UI_V3_NOTICE.txt dist/NUWE_UI_V3_NOTICE.txt
+          sha256sum dist/Nuwe-Mapa-0.3.0-UI-Nova-arm64-debug.apk > dist/SHA256.txt
           ls -lh dist
 
       - name: Archive Nuwe Mapa APK
         uses: actions/upload-artifact@v7
         with:
-          name: nuwe-mapa-fruit-aero-apk
+          name: nuwe-mapa-ui-v3-apk
           path: dist/*
           retention-days: 30
           if-no-files-found: error
