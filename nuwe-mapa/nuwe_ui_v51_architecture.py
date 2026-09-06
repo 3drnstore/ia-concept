@@ -33,7 +33,7 @@ def require_replace(text: str, old: str, new: str, label: str) -> str:
 
 
 def fix_v50_source_syntax() -> None:
-    """Repair malformed Java multiline strings introduced in the v50 sheets."""
+    """Repair compile errors introduced in the v50 Nuwe sheets source."""
     p = APP / "src/net/osmand/plus/nuwe/NuweSheets.java"
     s = read(p)
 
@@ -48,6 +48,10 @@ def fix_v50_source_syntax() -> None:
     if about_bad not in s:
         raise RuntimeError("Expected malformed NuweSheets about string not found")
     s = s.replace(about_bad, about_good, 1)
+
+    old_title = 'String title = pd != null ? pd.getSimpleName(activity,false) : "Ponto no mapa"; if(Algorithms.isEmpty(title))title="Ponto no mapa";'
+    new_title = 'String rawTitle = pd != null ? pd.getSimpleName(activity,false) : "Ponto no mapa"; final String title = Algorithms.isEmpty(rawTitle) ? "Ponto no mapa" : rawTitle;'
+    s = require_replace(s, old_title, new_title, "effectively-final map point title")
 
     write(p, s)
 
