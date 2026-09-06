@@ -96,7 +96,7 @@ public final class NuweLauncher {
     private static TextView profileChip(@NonNull MapActivity activity, String label,
                                         ApplicationMode mode, boolean selected) {
         TextView chip = NuweUi.chip(activity, label, selected, v -> {
-            activity.getSettings().setApplicationMode(mode);
+            activity.getSettings().setApplicationMode(mode, false);
             ViewGroup parent = (ViewGroup) v.getParent();
             if (parent != null) {
                 ViewGroup grand = (ViewGroup) parent.getParent();
