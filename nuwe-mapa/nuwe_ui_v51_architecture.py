@@ -58,6 +58,13 @@ def fix_v50_source_syntax() -> None:
         raise RuntimeError("Expected exactly two unsupported TTS settings constants")
     s = s.replace(tts_constant, '"com.android.settings.TTS_SETTINGS"')
 
+    for mode in ("CAR", "BICYCLE", "PEDESTRIAN"):
+        old = f"setApplicationMode(ApplicationMode.{mode});"
+        new = f"setApplicationMode(ApplicationMode.{mode}, false);"
+        if s.count(old) != 1:
+            raise RuntimeError(f"Expected one NuweSheets application mode call for {mode}")
+        s = s.replace(old, new, 1)
+
     write(p, s)
 
 
