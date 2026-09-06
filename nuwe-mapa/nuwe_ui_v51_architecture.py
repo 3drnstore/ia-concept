@@ -32,6 +32,18 @@ def require_replace(text: str, old: str, new: str, label: str) -> str:
     return text.replace(old, new, 1)
 
 
+def fix_v50_source_syntax() -> None:
+    """Repair the malformed Java string introduced in the v50 maps-local sheet."""
+    p = APP / "src/net/osmand/plus/nuwe/NuweSheets.java"
+    s = read(p)
+    bad = ' arquivo(s) .obf encontrado(s)' + chr(92) + chr(10) + '"+base.getAbsolutePath()'
+    good = ' arquivo(s) .obf encontrado(s)' + chr(92) + 'n"+base.getAbsolutePath()'
+    if bad not in s:
+        raise RuntimeError("Expected malformed NuweSheets .obf string not found")
+    s = s.replace(bad, good, 1)
+    write(p, s)
+
+
 def install_integration_sources() -> None:
     dst = APP / "src/net/osmand/plus/nuwe"
     for name in ("NuweMapController.java", "NuweLauncher.java"):
@@ -145,6 +157,7 @@ def write_notice() -> None:
 
 
 def main() -> None:
+    fix_v50_source_syntax()
     install_integration_sources()
     install_canonical_launcher_icon()
     patch_map_activity_boundary()
