@@ -78,6 +78,7 @@ jobs:
 
       - name: Apply Nuwe Mapa patches
         run: |
+          set -euo pipefail
           python3 host/nuwe-mapa/patch_osmand.py android
           python3 host/nuwe-mapa/patch_multignss.py android
           python3 host/nuwe-mapa/fruit_aero_skin.py android
@@ -86,11 +87,11 @@ jobs:
           python3 host/nuwe-mapa/nuwe_ui_v4.py android
           python3 host/nuwe-mapa/nuwe_v41_crashfix.py android
           python3 host/nuwe-mapa/nuwe_v42_packaging_fix.py android
-          python3 host/nuwe-mapa/nuwe_ui_v43.py android
-          python3 host/nuwe-mapa/nuwe_v44_icon_package_fix.py android
-          python3 host/nuwe-mapa/nuwe_v45_install_icon_fix.py android
+          # IMPORTANT: 0.4.3-0.4.5 are intentionally skipped. 0.4.6 starts from
+          # the last package confirmed installable on the user's device (0.4.2).
+          python3 host/nuwe-mapa/nuwe_v46_safe_rebuild.py android
 
-      - name: Verify Nuwe UI and launcher before build
+      - name: Verify Nuwe 0.4.6 source state
         shell: bash
         run: |
           set -euo pipefail
@@ -98,28 +99,20 @@ jobs:
           grep -q 'android:icon="@mipmap/nuwe_launcher"' android/OsmAnd/AndroidManifest.xml
           grep -q 'android:roundIcon="@mipmap/nuwe_launcher"' android/OsmAnd/AndroidManifest.xml
           grep -q 'applicationId "app.nuwe.mapa"' android/OsmAnd/build.gradle
-          grep -q 'versionCode 5405' android/OsmAnd/build.gradle
-          grep -q 'versionName "0.4.5"' android/OsmAnd/build.gradle
+          grep -q 'versionCode 5406' android/OsmAnd/build.gradle
+          grep -q 'versionName "0.4.6"' android/OsmAnd/build.gradle
           test ! -f android/OsmAnd/res/mipmap-anydpi-v26/nuwe_launcher.xml
-          test ! -f android/OsmAnd/res/mipmap-anydpi-v26/icon.xml
-          test ! -f android/OsmAnd/res/mipmap-anydpi-v26/icon_free.xml
-          test ! -f android/OsmAnd/res/mipmap-anydpi-v26/icon_nightly.xml
           for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
             test -f "android/OsmAnd/res/mipmap-$d/nuwe_launcher.png"
-            cmp "android/OsmAnd/res/mipmap-$d/nuwe_launcher.png" "android/OsmAnd/res/mipmap-$d/icon.png"
-            cmp "android/OsmAnd/res/mipmap-$d/nuwe_launcher.png" "android/OsmAnd/res/mipmap-$d/icon_free.png"
-            cmp "android/OsmAnd/res/mipmap-$d/nuwe_launcher.png" "android/OsmAnd/res/mipmap-$d/icon_nightly.png"
           done
-          test -f android/OsmAnd/res/drawable/nuwe2000_orb.xml
-          test -f android/OsmAnd/res/drawable/nuwe43_layers.xml
-          test -f android/OsmAnd/res/drawable/nuwe43_settings_card.xml
-          test -f android/OsmAnd/src/net/osmand/plus/nuwe/NuweLauncherController.java
-          grep -q 'nuwe_launcher_orb' android/OsmAnd/res/layout/map_hud_layout.xml
-          grep -q 'nuwe_settings_overlay' android/OsmAnd/res/layout/map_hud_layout.xml
+          test -f android/OsmAnd/src/net/osmand/plus/nuwe/NuweSettingsDialog.java
+          grep -q 'NuweSettingsDialog.show(activity)' android/OsmAnd/src/net/osmand/plus/nuwe/NuweLauncherController.java
           grep -q 'addOnPreDrawListener' android/OsmAnd/src/net/osmand/plus/nuwe/NuweLauncherController.java
+          grep -q 'setVisibility(View.INVISIBLE)' android/OsmAnd/src/net/osmand/plus/nuwe/NuweLauncherController.java
+          grep -q 'searchBar.setVisibility(View.GONE)' android/OsmAnd/src/net/osmand/plus/nuwe/NuweLauncherController.java
           grep -q 'Bind Nuwe shell only after the drawer and map root views exist' android/OsmAnd/src/net/osmand/plus/activities/MapActivity.java
-          if grep -q 'MULTI-GNSS' android/OsmAnd/res/layout/map_hud_layout.xml; then
-            echo 'Decorative MULTI-GNSS pill still present' >&2
+          if test -f android/NUWE_UI_V43_NOTICE.txt || test -f android/NUWE_V44_ICON_PACKAGE_NOTICE.txt || test -f android/NUWE_V45_INSTALL_ICON_NOTICE.txt; then
+            echo 'Unsafe post-0.4.2 patch unexpectedly applied' >&2
             exit 1
           fi
 
@@ -135,7 +128,7 @@ jobs:
         working-directory: ./android
         shell: bash
         run: |
-          set -o pipefail
+          set -euo pipefail
           if ./gradlew :OsmAnd:assembleAndroidFullOpenglArm64Debug --stacktrace; then
             echo 'androidFullOpenglArm64Debug' > ../BUILD_VARIANT.txt
           else
@@ -144,12 +137,25 @@ jobs:
             echo 'androidFullLegacyArm64Debug' > ../BUILD_VARIANT.txt
           fi
 
+      - name: Select exact APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          find android/OsmAnd/build/outputs/apk -type f -name '*.apk' -print | tee APK_CANDIDATES.txt
+          mapfile -t APKS < APK_CANDIDATES.txt
+          if [ "${#APKS[@]}" -ne 1 ]; then
+            echo "Expected exactly one APK, found ${#APKS[@]}" >&2
+            exit 1
+          fi
+          printf '%s\n' "${APKS[0]}" > APK_PATH.txt
+          echo "Selected exact APK: ${APKS[0]}"
+
       - name: Align sign and validate final APK
         shell: bash
         run: |
           set -euo pipefail
-          APK=$(find android/OsmAnd/build/outputs/apk -type f -name '*.apk' | sort | tail -n 1)
-          test -n "$APK"
+          APK=$(cat APK_PATH.txt)
+          test -f "$APK"
           BUILD_TOOLS=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
           APKSIGNER="$BUILD_TOOLS/apksigner"
           ZIPALIGN="$BUILD_TOOLS/zipalign"
@@ -164,35 +170,53 @@ jobs:
           "$ZIPALIGN" -p -f 4 "$APK" work/nuwe-aligned.apk
           "$ZIPALIGN" -c -p 4 work/nuwe-aligned.apk
 
+          FINAL=dist/Nuwe-Mapa-0.4.6-Fruit-Aero-2000-arm64.apk
           "$APKSIGNER" sign \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
             --key signing/testkey.pk8 \
             --cert signing/testkey.x509.pem \
-            --out dist/Nuwe-Mapa-0.4.5-Fruit-Aero-2000-arm64.apk \
+            --out "$FINAL" \
             work/nuwe-aligned.apk
 
-          FINAL=dist/Nuwe-Mapa-0.4.5-Fruit-Aero-2000-arm64.apk
-          "$APKSIGNER" verify --verbose --print-certs "$FINAL" > dist/APK_SIGNATURE.txt
+          "$APKSIGNER" verify --verbose --print-certs "$FINAL" | tee dist/APK_SIGNATURE.txt
+          grep -q 'Verified using v1 scheme (JAR signing): true' dist/APK_SIGNATURE.txt
+          grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' dist/APK_SIGNATURE.txt
           "$ZIPALIGN" -c -p 4 "$FINAL"
-          unzip -t "$FINAL" > dist/APK_ZIP_TEST.txt
+          unzip -t "$FINAL" | tee dist/APK_ZIP_TEST.txt
           tail -1 dist/APK_ZIP_TEST.txt | grep -q 'No errors detected'
 
-          "$AAPT2" dump badging "$FINAL" > dist/APK_BADGING.txt
+          "$AAPT2" dump badging "$FINAL" | tee dist/APK_BADGING.txt
           grep -q "package: name='app.nuwe.mapa'" dist/APK_BADGING.txt
-          grep -q "versionCode='5405'" dist/APK_BADGING.txt
-          grep -q "versionName='0.4.5'" dist/APK_BADGING.txt
+          grep -q "versionCode='5406'" dist/APK_BADGING.txt
+          grep -q "versionName='0.4.6'" dist/APK_BADGING.txt
           grep -q "application-label:'Nuwe Mapa'" dist/APK_BADGING.txt
-          grep -q "application-icon-" dist/APK_BADGING.txt
+          grep -q "native-code: 'arm64-v8a'" dist/APK_BADGING.txt
+          grep -q "application-icon-.*nuwe_launcher.png" dist/APK_BADGING.txt
 
           "$AAPT2" dump xmltree "$FINAL" --file AndroidManifest.xml > dist/APK_MANIFEST_TREE.txt
           unzip -l "$FINAL" > dist/APK_FILE_LIST.txt
-          grep -q 'res/mipmap-.*/nuwe_launcher.png' dist/APK_FILE_LIST.txt
-          sha256sum "$FINAL" > dist/SHA256.txt
+          sha256sum "$FINAL" | tee dist/SHA256.txt
+          stat -c '%s' "$FINAL" | tee dist/APK_SIZE_BYTES.txt
+
+      - name: Compare package shape with installable 0.4.2 baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Guardrails for properties that were known to work on the user's phone.
+          grep -q "compileSdkVersion='36'" dist/APK_BADGING.txt
+          grep -q "targetSdkVersion:'36'" dist/APK_BADGING.txt
+          grep -q "application-icon-120:'res/mipmap-mdpi-v4/nuwe_launcher.png'" dist/APK_BADGING.txt
+          grep -q "application-icon-640:'res/mipmap-xxxhdpi-v4/nuwe_launcher.png'" dist/APK_BADGING.txt
+          test $(stat -c '%s' dist/Nuwe-Mapa-0.4.6-Fruit-Aero-2000-arm64.apk) -gt 200000000
 
       - name: Prepare APK artifact
         shell: bash
         run: |
           set -euo pipefail
           cp BUILD_VARIANT.txt dist/BUILD_VARIANT.txt
+          cp APK_CANDIDATES.txt dist/APK_CANDIDATES.txt
           cp android/NUWE_MAPA_BUILD_NOTICE.txt dist/NUWE_MAPA_BUILD_NOTICE.txt
           cp android/NUWE_MAPA_MULTIGNSS.txt dist/NUWE_MAPA_MULTIGNSS.txt
           cp android/NUWE_FRUIT_AERO_NOTICE.txt dist/NUWE_FRUIT_AERO_NOTICE.txt
@@ -201,15 +225,13 @@ jobs:
           cp android/NUWE_UI_V4_NOTICE.txt dist/NUWE_UI_V4_NOTICE.txt
           cp android/NUWE_V41_CRASHFIX_NOTICE.txt dist/NUWE_V41_CRASHFIX_NOTICE.txt
           cp android/NUWE_V42_PACKAGING_NOTICE.txt dist/NUWE_V42_PACKAGING_NOTICE.txt
-          cp android/NUWE_UI_V43_NOTICE.txt dist/NUWE_UI_V43_NOTICE.txt
-          cp android/NUWE_V44_ICON_PACKAGE_NOTICE.txt dist/NUWE_V44_ICON_PACKAGE_NOTICE.txt
-          cp android/NUWE_V45_INSTALL_ICON_NOTICE.txt dist/NUWE_V45_INSTALL_ICON_NOTICE.txt
+          cp android/NUWE_V46_SAFE_REBUILD_NOTICE.txt dist/NUWE_V46_SAFE_REBUILD_NOTICE.txt
           ls -lh dist
 
       - name: Archive Nuwe Mapa APK
         uses: actions/upload-artifact@v7
         with:
-          name: nuwe-mapa-ui-v45-apk
+          name: nuwe-mapa-ui-v46-safe-apk
           path: dist/*
           retention-days: 30
           if-no-files-found: error
