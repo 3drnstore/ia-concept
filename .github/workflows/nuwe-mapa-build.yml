@@ -1,0 +1,124 @@
+name: Build Nuwe Mapa APK
+
+on:
+  push:
+    branches:
+      - nuwe-mapa-build
+    paths:
+      - '.github/workflows/nuwe-mapa-build.yml'
+      - 'nuwe-mapa/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout Nuwe patch files
+        uses: actions/checkout@v7
+        with:
+          path: host
+
+      - name: Checkout OsmAnd
+        uses: actions/checkout@v7
+        with:
+          repository: osmandapp/OsmAnd
+          path: android
+
+      - name: Checkout OsmAnd resources
+        uses: actions/checkout@v7
+        with:
+          repository: osmandapp/OsmAnd-resources
+          path: resources
+
+      - name: Checkout OsmAnd core
+        uses: actions/checkout@v7
+        with:
+          repository: osmandapp/OsmAnd-core
+          path: core
+
+      - name: Checkout OsmAnd legacy core
+        uses: actions/checkout@v7
+        with:
+          repository: osmandapp/OsmAnd-core-legacy
+          path: core-legacy
+
+      - name: Checkout OsmAnd build support
+        uses: actions/checkout@v7
+        with:
+          repository: osmandapp/OsmAnd-build
+          path: build
+
+      - name: Checkout OsmAnd tools
+        uses: actions/checkout@v7
+        with:
+          repository: osmandapp/OsmAnd-tools
+          path: tools
+
+      - name: Checkout OsmAnd misc
+        uses: actions/checkout@v7
+        with:
+          repository: osmandapp/OsmAnd-misc
+          path: misc
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v6
+        with:
+          java-version: '17'
+          distribution: temurin
+          cache: gradle
+          cache-dependency-path: android/**/*.gradle*
+
+      - name: Install branding dependency
+        run: python3 -m pip install --disable-pip-version-check pillow
+
+      - name: Apply Nuwe Mapa patches
+        run: python3 host/nuwe-mapa/patch_osmand.py android
+
+      - name: Grant Gradle permission
+        working-directory: ./android
+        run: chmod +x gradlew
+
+      - name: Configure Gradle memory
+        working-directory: ./android
+        run: printf '\norg.gradle.jvmargs=-Xmx5g -Dfile.encoding=UTF-8\n' >> gradle.properties
+
+      - name: Build ARM64 APK
+        working-directory: ./android
+        shell: bash
+        run: |
+          set -o pipefail
+          if ./gradlew :OsmAnd:assembleAndroidFullOpenglArm64Debug --stacktrace; then
+            echo 'androidFullOpenglArm64Debug' > ../BUILD_VARIANT.txt
+          else
+            echo 'OpenGL build failed; trying legacy ARM64 build.'
+            ./gradlew :OsmAnd:assembleAndroidFullLegacyArm64Debug --stacktrace
+            echo 'androidFullLegacyArm64Debug' > ../BUILD_VARIANT.txt
+          fi
+
+      - name: Prepare APK artifact
+        shell: bash
+        run: |
+          mkdir -p dist
+          APK=$(find android/OsmAnd/build/outputs/apk -type f -name '*.apk' | sort | tail -n 1)
+          if [ -z "$APK" ]; then
+            echo 'No APK produced.' >&2
+            exit 1
+          fi
+          cp "$APK" dist/Nuwe-Mapa-0.1.0-arm64-debug.apk
+          cp BUILD_VARIANT.txt dist/BUILD_VARIANT.txt
+          cp android/NUWE_MAPA_BUILD_NOTICE.txt dist/NUWE_MAPA_BUILD_NOTICE.txt
+          sha256sum dist/Nuwe-Mapa-0.1.0-arm64-debug.apk > dist/SHA256.txt
+          ls -lh dist
+
+      - name: Archive Nuwe Mapa APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: nuwe-mapa-apk
+          path: dist/*
+          retention-days: 30
+          if-no-files-found: error
