@@ -17,17 +17,21 @@ def write(p: Path, s: str) -> None:
 
 
 def force_branding() -> None:
-    # Force the visible Android label even if a flavor resource overrides app_name.
+    # Force visible Nuwe Mapa identity regardless of what prior patches/flavors did.
     p = APP / "AndroidManifest.xml"
     s = read(p)
-    s = re.sub(r'android:icon="[^"]+"\s+android:label="[^"]+"',
-               'android:icon="@mipmap/nuwe_launcher" android:roundIcon="@mipmap/nuwe_launcher" android:label="Nuwe Mapa"', s, count=1)
+    s = re.sub(r'android:label="[^"]+"', 'android:label="Nuwe Mapa"', s, count=1)
+    s = re.sub(r'android:icon="[^"]+"', 'android:icon="@mipmap/nuwe_launcher"', s, count=1)
+    if 'android:roundIcon=' in s:
+        s = re.sub(r'android:roundIcon="[^"]+"', 'android:roundIcon="@mipmap/nuwe_launcher"', s, count=1)
+    else:
+        s = s.replace('android:icon="@mipmap/nuwe_launcher"',
+                      'android:icon="@mipmap/nuwe_launcher" android:roundIcon="@mipmap/nuwe_launcher"', 1)
     write(p, s)
 
     p = APP / "build.gradle"
     s = read(p)
-    # The build is personal and only the Android Full flavor is used, but forcing every
-    # app_name resValue prevents the launcher name from falling back to OsmAnd.
+    # Force every app_name resValue so no flavor can display OsmAnd on launcher.
     s = re.sub(r'resValue\s+"string",\s*"app_name",\s*"[^"]*"',
                'resValue "string", "app_name", "Nuwe Mapa"', s)
     s = re.sub(r'versionName\s+"0\.1\.0"', 'versionName "0.2.0"', s)
@@ -37,7 +41,7 @@ def force_branding() -> None:
 def patch_map_activity() -> None:
     p = APP / "src/net/osmand/plus/activities/MapActivity.java"
     s = read(p)
-    # Remove the OsmAnd-branded What's New startup interruption from Nuwe Mapa.
+    # Remove OsmAnd-branded What's New startup interruption from Nuwe Mapa.
     s = s.replace('if (WhatsNewDialogFragment.shouldShowDialog(app)) {',
                   'if (false && WhatsNewDialogFragment.shouldShowDialog(app)) {', 1)
     write(p, s)
@@ -137,12 +141,10 @@ def patch_top_toolbar() -> None:
 
 
 def patch_dashboard() -> None:
-    # Apply glass treatment to the map dashboard if the upstream layout exposes the common dashboard container.
     p = APP / "res/layout/dashboard_over_map.xml"
     if not p.exists():
         return
     s = read(p)
-    # Conservative: only restyle existing background attributes; keep IDs and hierarchy intact.
     s = s.replace('android:background="?attr/bg_color"', 'android:background="@drawable/nuwe_glass_panel_dark"')
     write(p, s)
 
