@@ -39,15 +39,13 @@ def fix_v50_source_syntax() -> None:
 
     maps_bad = ' arquivo(s) .obf encontrado(s)' + chr(92) + chr(10) + '"+base.getAbsolutePath()'
     maps_good = ' arquivo(s) .obf encontrado(s)' + chr(92) + 'n"+base.getAbsolutePath()'
-    if maps_bad not in s:
-        raise RuntimeError("Expected malformed NuweSheets .obf string not found")
-    s = s.replace(maps_bad, maps_good, 1)
+    if maps_bad in s:
+        s = s.replace(maps_bad, maps_good, 1)
 
     about_bad = 'própria do Nuwe.' + chr(92) + chr(10) + chr(92) + chr(10) + 'Uso pessoal/offline.'
     about_good = 'própria do Nuwe.' + chr(92) + 'n' + chr(92) + 'nUso pessoal/offline.'
-    if about_bad not in s:
-        raise RuntimeError("Expected malformed NuweSheets about string not found")
-    s = s.replace(about_bad, about_good, 1)
+    if about_bad in s:
+        s = s.replace(about_bad, about_good, 1)
 
     old_title = 'String title = pd != null ? pd.getSimpleName(activity,false) : "Ponto no mapa"; if(Algorithms.isEmpty(title))title="Ponto no mapa";'
     new_title = 'String rawTitle = pd != null ? pd.getSimpleName(activity,false) : "Ponto no mapa"; final String title = Algorithms.isEmpty(rawTitle) ? "Ponto no mapa" : rawTitle;'
