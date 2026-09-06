@@ -27,6 +27,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           repository: osmandapp/OsmAnd
+          ref: 1c9d45a3f037fa0d6c6791cc72e97ce7abdef816
           path: android
 
       - name: Checkout OsmAnd resources
@@ -76,41 +77,42 @@ jobs:
       - name: Install branding dependency
         run: python3 -m pip install --disable-pip-version-check pillow
 
-      - name: Apply Nuwe Mapa 0.5 patches
+      - name: Apply Nuwe Mapa 0.5.1 architecture
         shell: bash
         run: |
           set -euo pipefail
-          # Start clean from upstream. The old Fruit Aero/v3/v4 UI patches are
-          # deliberately NOT applied: 0.5 owns the visible UI from scratch.
           python3 host/nuwe-mapa/patch_osmand.py android
           python3 host/nuwe-mapa/patch_multignss.py android
           python3 host/nuwe-mapa/nuwe_ui_v50_rebuild.py android
+          python3 host/nuwe-mapa/nuwe_ui_v51_architecture.py android
 
-      - name: Verify Nuwe 0.5 source state
+      - name: Verify Nuwe source state
         shell: bash
         run: |
           set -euo pipefail
           grep -q 'applicationId "app.nuwe.mapa"' android/OsmAnd/build.gradle
-          grep -q 'versionCode 5500' android/OsmAnd/build.gradle
-          grep -q 'versionName "0.5.0"' android/OsmAnd/build.gradle
+          grep -q 'versionCode 5510' android/OsmAnd/build.gradle
+          grep -q 'versionName "0.5.1"' android/OsmAnd/build.gradle
           grep -q 'android:icon="@mipmap/nuwe_launcher"' android/OsmAnd/AndroidManifest.xml
           grep -q 'android:roundIcon="@mipmap/nuwe_launcher"' android/OsmAnd/AndroidManifest.xml
           grep -q 'android:label="Nuwe Mapa"' android/OsmAnd/AndroidManifest.xml
           for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
             test -f "android/OsmAnd/res/mipmap-$d/nuwe_launcher.png"
           done
-          test ! -f android/OsmAnd/res/mipmap-anydpi-v26/nuwe_launcher.xml
-          test ! -f android/OsmAnd/res/mipmap-anydpi-v26/nuwe_launcher_round.xml
           test -f android/OsmAnd/src/net/osmand/plus/nuwe/NuweUi.java
           test -f android/OsmAnd/src/net/osmand/plus/nuwe/NuweMapShell.java
           test -f android/OsmAnd/src/net/osmand/plus/nuwe/NuweSheets.java
-          grep -q 'NuweMapShell.bind(this)' android/OsmAnd/src/net/osmand/plus/activities/MapActivity.java
-          ! grep -q 'NuweLauncherController.bind(this)' android/OsmAnd/src/net/osmand/plus/activities/MapActivity.java
+          test -f android/OsmAnd/src/net/osmand/plus/nuwe/NuweMapController.java
+          test -f android/OsmAnd/src/net/osmand/plus/nuwe/NuweLauncher.java
+          grep -q 'NuweMapController.attach(this)' android/OsmAnd/src/net/osmand/plus/activities/MapActivity.java
+          ! grep -q 'NuweMapShell.bind(this)' android/OsmAnd/src/net/osmand/plus/activities/MapActivity.java
+          grep -q 'NuweMapController.onMapPoint' android/OsmAnd/src/net/osmand/plus/mapcontextmenu/MapContextMenu.java
+          grep -q 'NuweMapController.openLauncher' android/OsmAnd/src/net/osmand/plus/nuwe/NuweMapShell.java
+          ! grep -q 'hideNativeHud(activity)' android/OsmAnd/src/net/osmand/plus/nuwe/NuweMapShell.java
+          grep -q 'Gravar trajeto' android/OsmAnd/src/net/osmand/plus/nuwe/NuweLauncher.java
           ! grep -q 'nuwe_search_bar' android/OsmAnd/res/layout/map_hud_layout.xml
-          ! grep -q 'nuwe_launcher_orb' android/OsmAnd/res/layout/map_hud_layout.xml
           grep -q 'app.nuwe.mapa' android/OsmAnd/src/net/osmand/plus/views/controls/MapHudLayout.java
-          grep -q 'NuweMapShell.handleContextPoint' android/OsmAnd/src/net/osmand/plus/mapcontextmenu/MapContextMenu.java
-          grep -q 'Nuwe Mapa 0.5.0' android/NUWE_UI_V50_NOTICE.txt
+          grep -q 'Nuwe Mapa 0.5.1' android/NUWE_UI_V51_NOTICE.txt
 
       - name: Grant Gradle permission
         working-directory: ./android
@@ -144,7 +146,6 @@ jobs:
             exit 1
           fi
           printf '%s\n' "${APKS[0]}" > APK_PATH.txt
-          echo "Selected exact APK: ${APKS[0]}"
 
       - name: Align sign and validate final APK
         shell: bash
@@ -166,7 +167,7 @@ jobs:
           "$ZIPALIGN" -p -f 4 "$APK" work/nuwe-aligned.apk
           "$ZIPALIGN" -c -p 4 work/nuwe-aligned.apk
 
-          FINAL=dist/Nuwe-Mapa-0.5.0-arm64.apk
+          FINAL=dist/Nuwe-Mapa-0.5.1-arm64.apk
           "$APKSIGNER" sign \
             --v1-signing-enabled true \
             --v2-signing-enabled true \
@@ -185,8 +186,8 @@ jobs:
 
           "$AAPT2" dump badging "$FINAL" | tee dist/APK_BADGING.txt
           grep -q "package: name='app.nuwe.mapa'" dist/APK_BADGING.txt
-          grep -q "versionCode='5500'" dist/APK_BADGING.txt
-          grep -q "versionName='0.5.0'" dist/APK_BADGING.txt
+          grep -q "versionCode='5510'" dist/APK_BADGING.txt
+          grep -q "versionName='0.5.1'" dist/APK_BADGING.txt
           grep -q "application-label:'Nuwe Mapa'" dist/APK_BADGING.txt
           grep -q "native-code: 'arm64-v8a'" dist/APK_BADGING.txt
           grep -q "application-icon-.*nuwe_launcher.png" dist/APK_BADGING.txt
@@ -204,7 +205,7 @@ jobs:
           set -euo pipefail
           grep -q "compileSdkVersion='36'" dist/APK_BADGING.txt
           grep -q "targetSdkVersion:'36'" dist/APK_BADGING.txt
-          test $(stat -c '%s' dist/Nuwe-Mapa-0.5.0-arm64.apk) -gt 200000000
+          test $(stat -c '%s' dist/Nuwe-Mapa-0.5.1-arm64.apk) -gt 200000000
 
       - name: Prepare APK artifact
         shell: bash
@@ -214,13 +215,13 @@ jobs:
           cp APK_CANDIDATES.txt dist/APK_CANDIDATES.txt
           cp android/NUWE_MAPA_BUILD_NOTICE.txt dist/NUWE_MAPA_BUILD_NOTICE.txt
           cp android/NUWE_MAPA_MULTIGNSS.txt dist/NUWE_MAPA_MULTIGNSS.txt
-          cp android/NUWE_UI_V50_NOTICE.txt dist/NUWE_UI_V50_NOTICE.txt
+          cp android/NUWE_UI_V51_NOTICE.txt dist/NUWE_UI_V51_NOTICE.txt
           ls -lh dist
 
       - name: Archive Nuwe Mapa APK
         uses: actions/upload-artifact@v7
         with:
-          name: nuwe-mapa-ui-v50-apk
+          name: nuwe-mapa-ui-v51-apk
           path: dist/*
           retention-days: 30
           if-no-files-found: error
