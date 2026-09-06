@@ -87,8 +87,9 @@ jobs:
           python3 host/nuwe-mapa/nuwe_v41_crashfix.py android
           python3 host/nuwe-mapa/nuwe_v42_packaging_fix.py android
           python3 host/nuwe-mapa/nuwe_ui_v43.py android
+          python3 host/nuwe-mapa/nuwe_v44_icon_package_fix.py android
 
-      - name: Verify Nuwe UI before build
+      - name: Verify Nuwe UI and launcher before build
         shell: bash
         run: |
           set -euo pipefail
@@ -96,17 +97,24 @@ jobs:
           grep -q 'android:icon="@mipmap/nuwe_launcher"' android/OsmAnd/AndroidManifest.xml
           grep -q 'android:roundIcon="@mipmap/nuwe_launcher"' android/OsmAnd/AndroidManifest.xml
           grep -q 'applicationId "app.nuwe.mapa"' android/OsmAnd/build.gradle
-          grep -q 'versionName "0.4.3"' android/OsmAnd/build.gradle
-          test ! -f android/OsmAnd/res/mipmap-anydpi-v26/nuwe_launcher.xml
-          for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do test -f "android/OsmAnd/res/mipmap-$d/nuwe_launcher.png"; done
+          grep -q 'versionName "0.4.4"' android/OsmAnd/build.gradle
+          test -f android/OsmAnd/res/mipmap-anydpi-v26/nuwe_launcher.xml
+          grep -q 'nuwe_launcher_foreground' android/OsmAnd/res/mipmap-anydpi-v26/nuwe_launcher.xml
+          for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            test -f "android/OsmAnd/res/mipmap-$d/nuwe_launcher.png"
+            cmp "android/OsmAnd/res/mipmap-$d/nuwe_launcher.png" "android/OsmAnd/res/mipmap-$d/icon.png"
+            cmp "android/OsmAnd/res/mipmap-$d/nuwe_launcher.png" "android/OsmAnd/res/mipmap-$d/icon_free.png"
+            cmp "android/OsmAnd/res/mipmap-$d/nuwe_launcher.png" "android/OsmAnd/res/mipmap-$d/icon_nightly.png"
+          done
+          grep -q 'nuwe_launcher_foreground' android/OsmAnd/res/mipmap-anydpi-v26/icon.xml
+          grep -q 'nuwe_launcher_foreground' android/OsmAnd/res/mipmap-anydpi-v26/icon_free.xml
+          grep -q 'nuwe_launcher_foreground' android/OsmAnd/res/mipmap-anydpi-v26/icon_nightly.xml
           test -f android/OsmAnd/res/drawable/nuwe2000_orb.xml
-          test -f android/OsmAnd/res/drawable/nuwe43_settings.xml || true
           test -f android/OsmAnd/res/drawable/nuwe43_layers.xml
           test -f android/OsmAnd/res/drawable/nuwe43_settings_card.xml
           test -f android/OsmAnd/src/net/osmand/plus/nuwe/NuweLauncherController.java
           grep -q 'nuwe_launcher_orb' android/OsmAnd/res/layout/map_hud_layout.xml
           grep -q 'nuwe_settings_overlay' android/OsmAnd/res/layout/map_hud_layout.xml
-          grep -q 'android:visibility="gone"' android/OsmAnd/res/layout/map_hud_layout.xml
           grep -q 'addOnPreDrawListener' android/OsmAnd/src/net/osmand/plus/nuwe/NuweLauncherController.java
           grep -q 'Bind Nuwe shell only after the drawer and map root views exist' android/OsmAnd/src/net/osmand/plus/activities/MapActivity.java
           if grep -q 'MULTI-GNSS' android/OsmAnd/res/layout/map_hud_layout.xml; then
@@ -135,15 +143,12 @@ jobs:
             echo 'androidFullLegacyArm64Debug' > ../BUILD_VARIANT.txt
           fi
 
-      - name: Align and sign APK with stable development key
+      - name: Align sign and validate final APK
         shell: bash
         run: |
           set -euo pipefail
           APK=$(find android/OsmAnd/build/outputs/apk -type f -name '*.apk' | sort | tail -n 1)
-          if [ -z "$APK" ]; then
-            echo 'No APK produced.' >&2
-            exit 1
-          fi
+          test -n "$APK"
           BUILD_TOOLS=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -n 1)
           APKSIGNER="$BUILD_TOOLS/apksigner"
           ZIPALIGN="$BUILD_TOOLS/zipalign"
@@ -161,16 +166,27 @@ jobs:
           "$APKSIGNER" sign \
             --key signing/testkey.pk8 \
             --cert signing/testkey.x509.pem \
-            --out dist/Nuwe-Mapa-0.4.3-Fruit-Aero-2000-arm64.apk \
+            --out dist/Nuwe-Mapa-0.4.4-Fruit-Aero-2000-arm64.apk \
             work/nuwe-aligned.apk
 
-          "$APKSIGNER" verify --verbose --print-certs dist/Nuwe-Mapa-0.4.3-Fruit-Aero-2000-arm64.apk
-          "$ZIPALIGN" -c -p 4 dist/Nuwe-Mapa-0.4.3-Fruit-Aero-2000-arm64.apk
+          FINAL=dist/Nuwe-Mapa-0.4.4-Fruit-Aero-2000-arm64.apk
+          "$APKSIGNER" verify --verbose --print-certs "$FINAL" > dist/APK_SIGNATURE.txt
+          "$ZIPALIGN" -c -p 4 "$FINAL"
+          unzip -t "$FINAL" > dist/APK_ZIP_TEST.txt
+          tail -1 dist/APK_ZIP_TEST.txt | grep -q 'No errors detected'
 
-          "$AAPT2" dump badging dist/Nuwe-Mapa-0.4.3-Fruit-Aero-2000-arm64.apk > dist/APK_BADGING.txt
+          "$AAPT2" dump badging "$FINAL" > dist/APK_BADGING.txt
           grep -q "package: name='app.nuwe.mapa'" dist/APK_BADGING.txt
           grep -q "application-label:'Nuwe Mapa'" dist/APK_BADGING.txt
           grep -q "application-icon-" dist/APK_BADGING.txt
+          grep -q "nuwe_launcher" dist/APK_BADGING.txt
+
+          "$AAPT2" dump xmltree "$FINAL" --file AndroidManifest.xml > dist/APK_MANIFEST_TREE.txt
+          grep -q 'app.nuwe.mapa' dist/APK_BADGING.txt
+
+          unzip -l "$FINAL" > dist/APK_FILE_LIST.txt
+          grep -q 'nuwe_launcher' dist/APK_FILE_LIST.txt
+          sha256sum "$FINAL" > dist/SHA256.txt
 
       - name: Prepare APK artifact
         shell: bash
@@ -186,14 +202,13 @@ jobs:
           cp android/NUWE_V41_CRASHFIX_NOTICE.txt dist/NUWE_V41_CRASHFIX_NOTICE.txt
           cp android/NUWE_V42_PACKAGING_NOTICE.txt dist/NUWE_V42_PACKAGING_NOTICE.txt
           cp android/NUWE_UI_V43_NOTICE.txt dist/NUWE_UI_V43_NOTICE.txt
-          sha256sum dist/Nuwe-Mapa-0.4.3-Fruit-Aero-2000-arm64.apk > dist/SHA256.txt
-          unzip -t dist/Nuwe-Mapa-0.4.3-Fruit-Aero-2000-arm64.apk | tail -1
+          cp android/NUWE_V44_ICON_PACKAGE_NOTICE.txt dist/NUWE_V44_ICON_PACKAGE_NOTICE.txt
           ls -lh dist
 
       - name: Archive Nuwe Mapa APK
         uses: actions/upload-artifact@v7
         with:
-          name: nuwe-mapa-ui-v43-apk
+          name: nuwe-mapa-ui-v44-apk
           path: dist/*
           retention-days: 30
           if-no-files-found: error
