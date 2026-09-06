@@ -84,6 +84,7 @@ jobs:
           python3 host/nuwe-mapa/nuwe_ui_v3.py android
           python3 host/nuwe-mapa/nuwe_v31_fix.py android
           python3 host/nuwe-mapa/nuwe_ui_v4.py android
+          python3 host/nuwe-mapa/nuwe_v41_crashfix.py android
 
       - name: Verify Nuwe UI before build
         shell: bash
@@ -92,7 +93,7 @@ jobs:
           grep -q 'android:icon="@mipmap/nuwe_launcher"' android/OsmAnd/AndroidManifest.xml
           grep -q 'android:roundIcon="@mipmap/nuwe_launcher"' android/OsmAnd/AndroidManifest.xml
           grep -q 'applicationId "app.nuwe.mapa"' android/OsmAnd/build.gradle
-          grep -q 'versionName "0.4.0"' android/OsmAnd/build.gradle
+          grep -q 'versionName "0.4.1"' android/OsmAnd/build.gradle
           test ! -f android/OsmAnd/res/mipmap-anydpi-v26/nuwe_launcher.xml
           test -f android/OsmAnd/res/drawable/nuwe_ic_car.xml
           test -f android/OsmAnd/res/drawable/nuwe_ic_bike.xml
@@ -100,7 +101,7 @@ jobs:
           test -f android/OsmAnd/res/drawable/nuwe2000_orb.xml
           test -f android/OsmAnd/src/net/osmand/plus/nuwe/NuweLauncherController.java
           grep -q 'nuwe_launcher_orb' android/OsmAnd/res/layout/map_hud_layout.xml
-          grep -q 'NuweLauncherController.bind(this)' android/OsmAnd/src/net/osmand/plus/activities/MapActivity.java
+          grep -q 'Bind Nuwe shell only after the drawer and map root views exist' android/OsmAnd/src/net/osmand/plus/activities/MapActivity.java
           grep -q 'values.add(ApplicationMode.CAR)' android/OsmAnd/src/net/osmand/plus/activities/actions/AppModeDialog.java
           grep -q 'WEATHER_ID.equals(id)' android/OsmAnd/src/net/osmand/plus/configmap/ConfigureMapMenu.java
           if grep -q 'MULTI-GNSS' android/OsmAnd/res/layout/map_hud_layout.xml; then
@@ -149,9 +150,9 @@ jobs:
           "$APKSIGNER" sign \
             --key signing/testkey.pk8 \
             --cert signing/testkey.x509.pem \
-            --out dist/Nuwe-Mapa-0.4.0-Fruit-Aero-2000-arm64.apk \
+            --out dist/Nuwe-Mapa-0.4.1-Fruit-Aero-2000-arm64.apk \
             "$APK"
-          "$APKSIGNER" verify --verbose --print-certs dist/Nuwe-Mapa-0.4.0-Fruit-Aero-2000-arm64.apk
+          "$APKSIGNER" verify --verbose --print-certs dist/Nuwe-Mapa-0.4.1-Fruit-Aero-2000-arm64.apk
 
       - name: Prepare APK artifact
         shell: bash
@@ -163,13 +164,14 @@ jobs:
           cp android/NUWE_UI_V3_NOTICE.txt dist/NUWE_UI_V3_NOTICE.txt
           cp android/NUWE_V31_FIX_NOTICE.txt dist/NUWE_V31_FIX_NOTICE.txt
           cp android/NUWE_UI_V4_NOTICE.txt dist/NUWE_UI_V4_NOTICE.txt
-          sha256sum dist/Nuwe-Mapa-0.4.0-Fruit-Aero-2000-arm64.apk > dist/SHA256.txt
+          cp android/NUWE_V41_CRASHFIX_NOTICE.txt dist/NUWE_V41_CRASHFIX_NOTICE.txt
+          sha256sum dist/Nuwe-Mapa-0.4.1-Fruit-Aero-2000-arm64.apk > dist/SHA256.txt
           ls -lh dist
 
       - name: Archive Nuwe Mapa APK
         uses: actions/upload-artifact@v7
         with:
-          name: nuwe-mapa-ui-v40-apk
+          name: nuwe-mapa-ui-v41-apk
           path: dist/*
           retention-days: 30
           if-no-files-found: error
