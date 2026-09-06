@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
+import hashlib
 import re
 import shutil
 import sys
@@ -10,7 +11,10 @@ ROOT = Path(sys.argv[1]).resolve() if len(sys.argv) > 1 else Path("android").res
 APP = ROOT / "OsmAnd"
 HERE = Path(__file__).resolve().parent
 SRC = HERE / "v50-src"
-ICON = HERE / "assets" / "nuwe_launcher.png"
+# v50 installs the same Nuwe launcher artwork used by the last installable Nuwe APK.
+# v51 verifies its exact digest before reusing it for every launcher resource.
+ICON = APP / "res/mipmap-xxxhdpi/nuwe_launcher.png"
+ICON_SHA256 = "3eb72f74850c7350c0164cc6785780894d8941c76d0c67ebd3eeb18c2b11a590"
 
 
 def read(path: Path) -> str:
@@ -46,7 +50,10 @@ def install_integration_sources() -> None:
 
 def install_canonical_launcher_icon() -> None:
     if not ICON.exists():
-        raise RuntimeError(f"Canonical Nuwe launcher icon not found: {ICON}")
+        raise RuntimeError(f"Existing Nuwe launcher icon not found: {ICON}")
+    digest = hashlib.sha256(ICON.read_bytes()).hexdigest()
+    if digest != ICON_SHA256:
+        raise RuntimeError(f"Nuwe launcher icon changed unexpectedly: {digest}")
 
     base = Image.open(ICON).convert("RGBA")
     densities = {"mdpi": 48, "hdpi": 72, "xhdpi": 96, "xxhdpi": 144, "xxxhdpi": 192}
@@ -60,8 +67,6 @@ def install_canonical_launcher_icon() -> None:
             if fp.exists():
                 shutil.copyfile(out, fp)
 
-    # Adaptive launcher uses the exact same existing Nuwe artwork. Density PNGs
-    # remain as fallbacks for pre-Android-8 devices and flavor aliases.
     art = APP / "res/drawable-nodpi/nuwe_launcher_art.png"
     art.parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(ICON, art)
@@ -87,7 +92,6 @@ def install_canonical_launcher_icon() -> None:
     write(APP / "res/mipmap-anydpi-v26/nuwe_launcher.xml", adaptive)
     write(APP / "res/mipmap-anydpi-v26/nuwe_launcher_round.xml", adaptive)
 
-    # Manifest variants can override branding, so enforce the same resource in all.
     for manifest in sorted(APP.glob("AndroidManifest*.xml")):
         s = read(manifest)
         app_match = re.search(r'<application\b[^>]*>', s, flags=re.S)
@@ -137,7 +141,7 @@ def patch_version() -> None:
 
 
 def write_notice() -> None:
-    write(ROOT / "NUWE_UI_V51_NOTICE.txt", """Nuwe Mapa 0.5.1\n\nArchitecture pass:\n- OsmAnd engine -> NuweMapController -> Nuwe UI.\n- MapActivity no longer binds directly to NuweMapShell.\n- Native OsmAnd point context menu is redirected through NuweMapController.\n- Circular launcher is implemented by NuweLauncher, separate from the map shell.\n- Launcher exposes Buscar, Trajeto/Rota, Favoritos, Trilhas/GPX, Gravar trajeto, Mapas offline, Compartilhar localização, Adicionar marcador and Configurações.\n- Runtime hideNativeHud() call removed; Nuwe does not depend on repeatedly hiding OsmAnd controls.\n- Visible profiles remain only Carro, Bike and Trilha.\n- Launcher branding is sourced from the canonical pre-existing Nuwe icon asset, including density fallbacks and adaptive icon wrappers.\n""")
+    write(ROOT / "NUWE_UI_V51_NOTICE.txt", """Nuwe Mapa 0.5.1\n\nArchitecture pass:\n- OsmAnd engine -> NuweMapController -> Nuwe UI.\n- MapActivity no longer binds directly to NuweMapShell.\n- Native OsmAnd point context menu is redirected through NuweMapController.\n- Circular launcher is implemented by NuweLauncher, separate from the map shell.\n- Launcher exposes Buscar, Trajeto/Rota, Favoritos, Trilhas/GPX, Gravar trajeto, Mapas offline, Compartilhar localização, Adicionar marcador and Configurações.\n- Runtime hideNativeHud() call removed; Nuwe does not depend on repeatedly hiding OsmAnd controls.\n- Visible profiles remain only Carro, Bike and Trilha.\n- Launcher branding reuses the exact icon from the previous installable Nuwe APK, verified by SHA-256, with density fallbacks and adaptive wrappers.\n""")
 
 
 def main() -> None:
