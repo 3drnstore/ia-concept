@@ -126,14 +126,36 @@ jobs:
         working-directory: ./android
         shell: bash
         run: |
-          set -euo pipefail
-          if ./gradlew :OsmAnd:assembleAndroidFullOpenglArm64Debug --stacktrace; then
+          set -uo pipefail
+          : > ../GRADLE_BUILD.log
+
+          set +e
+          ./gradlew :OsmAnd:assembleAndroidFullOpenglArm64Debug --stacktrace 2>&1 | tee -a ../GRADLE_BUILD.log
+          OPENGL_RC=${PIPESTATUS[0]}
+          set -e
+
+          if [ "$OPENGL_RC" -eq 0 ]; then
             echo 'androidFullOpenglArm64Debug' > ../BUILD_VARIANT.txt
           else
-            echo 'OpenGL build failed; trying legacy ARM64 build.'
-            ./gradlew :OsmAnd:assembleAndroidFullLegacyArm64Debug --stacktrace
+            echo 'OpenGL build failed; trying legacy ARM64 build.' | tee -a ../GRADLE_BUILD.log
+            set +e
+            ./gradlew :OsmAnd:assembleAndroidFullLegacyArm64Debug --stacktrace 2>&1 | tee -a ../GRADLE_BUILD.log
+            LEGACY_RC=${PIPESTATUS[0]}
+            set -e
+            if [ "$LEGACY_RC" -ne 0 ]; then
+              exit "$LEGACY_RC"
+            fi
             echo 'androidFullLegacyArm64Debug' > ../BUILD_VARIANT.txt
           fi
+
+      - name: Upload build diagnostics on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: nuwe-mapa-gradle-build-log
+          path: GRADLE_BUILD.log
+          retention-days: 7
+          if-no-files-found: warn
 
       - name: Select exact APK
         shell: bash
