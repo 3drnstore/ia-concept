@@ -82,14 +82,17 @@ jobs:
           python3 host/nuwe-mapa/patch_multignss.py android
           python3 host/nuwe-mapa/fruit_aero_skin.py android
           python3 host/nuwe-mapa/nuwe_ui_v3.py android
+          python3 host/nuwe-mapa/nuwe_v31_fix.py android
 
       - name: Verify Nuwe UI before build
         shell: bash
         run: |
           grep -q 'android:label="Nuwe Mapa"' android/OsmAnd/AndroidManifest.xml
+          grep -q 'android:icon="@mipmap/nuwe_launcher"' android/OsmAnd/AndroidManifest.xml
+          grep -q 'android:roundIcon="@mipmap/nuwe_launcher"' android/OsmAnd/AndroidManifest.xml
           grep -q 'applicationId "app.nuwe.mapa"' android/OsmAnd/build.gradle
-          grep -q 'versionName "0.3.0"' android/OsmAnd/build.gradle
-          test -f android/OsmAnd/res/mipmap-anydpi-v26/nuwe_launcher.xml
+          grep -q 'versionName "0.3.1"' android/OsmAnd/build.gradle
+          test ! -f android/OsmAnd/res/mipmap-anydpi-v26/nuwe_launcher.xml
           test -f android/OsmAnd/res/drawable/nuwe_ic_car.xml
           test -f android/OsmAnd/res/drawable/nuwe_ic_bike.xml
           test -f android/OsmAnd/res/drawable/nuwe_ic_hike.xml
@@ -121,28 +124,46 @@ jobs:
             echo 'androidFullLegacyArm64Debug' > ../BUILD_VARIANT.txt
           fi
 
-      - name: Prepare APK artifact
+      - name: Re-sign APK with stable development key
         shell: bash
         run: |
-          mkdir -p dist
+          set -euo pipefail
           APK=$(find android/OsmAnd/build/outputs/apk -type f -name '*.apk' | sort | tail -n 1)
           if [ -z "$APK" ]; then
             echo 'No APK produced.' >&2
             exit 1
           fi
-          cp "$APK" dist/Nuwe-Mapa-0.3.0-UI-Nova-arm64-debug.apk
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)
+          if [ -z "$APKSIGNER" ]; then
+            echo 'apksigner not found.' >&2
+            exit 1
+          fi
+          mkdir -p signing dist
+          curl -fL 'https://raw.githubusercontent.com/aosp-mirror/platform_build/master/target/product/security/testkey.pk8' -o signing/testkey.pk8
+          curl -fL 'https://raw.githubusercontent.com/aosp-mirror/platform_build/master/target/product/security/testkey.x509.pem' -o signing/testkey.x509.pem
+          "$APKSIGNER" sign \
+            --key signing/testkey.pk8 \
+            --cert signing/testkey.x509.pem \
+            --out dist/Nuwe-Mapa-0.3.1-UI-Nova-arm64.apk \
+            "$APK"
+          "$APKSIGNER" verify --verbose --print-certs dist/Nuwe-Mapa-0.3.1-UI-Nova-arm64.apk
+
+      - name: Prepare APK artifact
+        shell: bash
+        run: |
           cp BUILD_VARIANT.txt dist/BUILD_VARIANT.txt
           cp android/NUWE_MAPA_BUILD_NOTICE.txt dist/NUWE_MAPA_BUILD_NOTICE.txt
           cp android/NUWE_MAPA_MULTIGNSS.txt dist/NUWE_MAPA_MULTIGNSS.txt
           cp android/NUWE_FRUIT_AERO_NOTICE.txt dist/NUWE_FRUIT_AERO_NOTICE.txt
           cp android/NUWE_UI_V3_NOTICE.txt dist/NUWE_UI_V3_NOTICE.txt
-          sha256sum dist/Nuwe-Mapa-0.3.0-UI-Nova-arm64-debug.apk > dist/SHA256.txt
+          cp android/NUWE_V31_FIX_NOTICE.txt dist/NUWE_V31_FIX_NOTICE.txt
+          sha256sum dist/Nuwe-Mapa-0.3.1-UI-Nova-arm64.apk > dist/SHA256.txt
           ls -lh dist
 
       - name: Archive Nuwe Mapa APK
         uses: actions/upload-artifact@v7
         with:
-          name: nuwe-mapa-ui-v3-apk
+          name: nuwe-mapa-ui-v31-apk
           path: dist/*
           retention-days: 30
           if-no-files-found: error
