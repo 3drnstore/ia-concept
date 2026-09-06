@@ -63,6 +63,11 @@ def fix_v50_source_syntax() -> None:
             raise RuntimeError(f"Expected one NuweSheets application mode call for {mode}")
         s = s.replace(old, new, 1)
 
+    background_call = "root.setBackground(NuweUi.BG);"
+    if s.count(background_call) != 6:
+        raise RuntimeError("Expected exactly six NuweSheets integer background calls")
+    s = s.replace(background_call, "root.setBackgroundColor(NuweUi.BG);")
+
     write(p, s)
 
 
