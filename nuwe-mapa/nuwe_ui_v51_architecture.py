@@ -53,6 +53,11 @@ def fix_v50_source_syntax() -> None:
     new_title = 'String rawTitle = pd != null ? pd.getSimpleName(activity,false) : "Ponto no mapa"; final String title = Algorithms.isEmpty(rawTitle) ? "Ponto no mapa" : rawTitle;'
     s = require_replace(s, old_title, new_title, "effectively-final map point title")
 
+    tts_constant = "Settings.ACTION_TTS_SETTINGS"
+    if s.count(tts_constant) != 2:
+        raise RuntimeError("Expected exactly two unsupported TTS settings constants")
+    s = s.replace(tts_constant, '"com.android.settings.TTS_SETTINGS"')
+
     write(p, s)
 
 
