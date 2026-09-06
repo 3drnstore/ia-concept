@@ -33,14 +33,22 @@ def require_replace(text: str, old: str, new: str, label: str) -> str:
 
 
 def fix_v50_source_syntax() -> None:
-    """Repair the malformed Java string introduced in the v50 maps-local sheet."""
+    """Repair malformed Java multiline strings introduced in the v50 sheets."""
     p = APP / "src/net/osmand/plus/nuwe/NuweSheets.java"
     s = read(p)
-    bad = ' arquivo(s) .obf encontrado(s)' + chr(92) + chr(10) + '"+base.getAbsolutePath()'
-    good = ' arquivo(s) .obf encontrado(s)' + chr(92) + 'n"+base.getAbsolutePath()'
-    if bad not in s:
+
+    maps_bad = ' arquivo(s) .obf encontrado(s)' + chr(92) + chr(10) + '"+base.getAbsolutePath()'
+    maps_good = ' arquivo(s) .obf encontrado(s)' + chr(92) + 'n"+base.getAbsolutePath()'
+    if maps_bad not in s:
         raise RuntimeError("Expected malformed NuweSheets .obf string not found")
-    s = s.replace(bad, good, 1)
+    s = s.replace(maps_bad, maps_good, 1)
+
+    about_bad = 'própria do Nuwe.' + chr(92) + chr(10) + chr(92) + chr(10) + 'Uso pessoal/offline.'
+    about_good = 'própria do Nuwe.' + chr(92) + 'n' + chr(92) + 'nUso pessoal/offline.'
+    if about_bad not in s:
+        raise RuntimeError("Expected malformed NuweSheets about string not found")
+    s = s.replace(about_bad, about_good, 1)
+
     write(p, s)
 
 
