@@ -86,6 +86,7 @@ jobs:
           python3 host/nuwe-mapa/nuwe_ui_v4.py android
           python3 host/nuwe-mapa/nuwe_v41_crashfix.py android
           python3 host/nuwe-mapa/nuwe_v42_packaging_fix.py android
+          python3 host/nuwe-mapa/nuwe_ui_v43.py android
 
       - name: Verify Nuwe UI before build
         shell: bash
@@ -95,15 +96,18 @@ jobs:
           grep -q 'android:icon="@mipmap/nuwe_launcher"' android/OsmAnd/AndroidManifest.xml
           grep -q 'android:roundIcon="@mipmap/nuwe_launcher"' android/OsmAnd/AndroidManifest.xml
           grep -q 'applicationId "app.nuwe.mapa"' android/OsmAnd/build.gradle
-          grep -q 'versionName "0.4.2"' android/OsmAnd/build.gradle
+          grep -q 'versionName "0.4.3"' android/OsmAnd/build.gradle
           test ! -f android/OsmAnd/res/mipmap-anydpi-v26/nuwe_launcher.xml
           for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do test -f "android/OsmAnd/res/mipmap-$d/nuwe_launcher.png"; done
-          test -f android/OsmAnd/res/drawable/nuwe_ic_car.xml
-          test -f android/OsmAnd/res/drawable/nuwe_ic_bike.xml
-          test -f android/OsmAnd/res/drawable/nuwe_ic_hike.xml
           test -f android/OsmAnd/res/drawable/nuwe2000_orb.xml
+          test -f android/OsmAnd/res/drawable/nuwe43_settings.xml || true
+          test -f android/OsmAnd/res/drawable/nuwe43_layers.xml
+          test -f android/OsmAnd/res/drawable/nuwe43_settings_card.xml
           test -f android/OsmAnd/src/net/osmand/plus/nuwe/NuweLauncherController.java
           grep -q 'nuwe_launcher_orb' android/OsmAnd/res/layout/map_hud_layout.xml
+          grep -q 'nuwe_settings_overlay' android/OsmAnd/res/layout/map_hud_layout.xml
+          grep -q 'android:visibility="gone"' android/OsmAnd/res/layout/map_hud_layout.xml
+          grep -q 'addOnPreDrawListener' android/OsmAnd/src/net/osmand/plus/nuwe/NuweLauncherController.java
           grep -q 'Bind Nuwe shell only after the drawer and map root views exist' android/OsmAnd/src/net/osmand/plus/activities/MapActivity.java
           if grep -q 'MULTI-GNSS' android/OsmAnd/res/layout/map_hud_layout.xml; then
             echo 'Decorative MULTI-GNSS pill still present' >&2
@@ -157,13 +161,13 @@ jobs:
           "$APKSIGNER" sign \
             --key signing/testkey.pk8 \
             --cert signing/testkey.x509.pem \
-            --out dist/Nuwe-Mapa-0.4.2-Fruit-Aero-2000-arm64.apk \
+            --out dist/Nuwe-Mapa-0.4.3-Fruit-Aero-2000-arm64.apk \
             work/nuwe-aligned.apk
 
-          "$APKSIGNER" verify --verbose --print-certs dist/Nuwe-Mapa-0.4.2-Fruit-Aero-2000-arm64.apk
-          "$ZIPALIGN" -c -p 4 dist/Nuwe-Mapa-0.4.2-Fruit-Aero-2000-arm64.apk
+          "$APKSIGNER" verify --verbose --print-certs dist/Nuwe-Mapa-0.4.3-Fruit-Aero-2000-arm64.apk
+          "$ZIPALIGN" -c -p 4 dist/Nuwe-Mapa-0.4.3-Fruit-Aero-2000-arm64.apk
 
-          "$AAPT2" dump badging dist/Nuwe-Mapa-0.4.2-Fruit-Aero-2000-arm64.apk > dist/APK_BADGING.txt
+          "$AAPT2" dump badging dist/Nuwe-Mapa-0.4.3-Fruit-Aero-2000-arm64.apk > dist/APK_BADGING.txt
           grep -q "package: name='app.nuwe.mapa'" dist/APK_BADGING.txt
           grep -q "application-label:'Nuwe Mapa'" dist/APK_BADGING.txt
           grep -q "application-icon-" dist/APK_BADGING.txt
@@ -181,14 +185,15 @@ jobs:
           cp android/NUWE_UI_V4_NOTICE.txt dist/NUWE_UI_V4_NOTICE.txt
           cp android/NUWE_V41_CRASHFIX_NOTICE.txt dist/NUWE_V41_CRASHFIX_NOTICE.txt
           cp android/NUWE_V42_PACKAGING_NOTICE.txt dist/NUWE_V42_PACKAGING_NOTICE.txt
-          sha256sum dist/Nuwe-Mapa-0.4.2-Fruit-Aero-2000-arm64.apk > dist/SHA256.txt
-          unzip -t dist/Nuwe-Mapa-0.4.2-Fruit-Aero-2000-arm64.apk | tail -1
+          cp android/NUWE_UI_V43_NOTICE.txt dist/NUWE_UI_V43_NOTICE.txt
+          sha256sum dist/Nuwe-Mapa-0.4.3-Fruit-Aero-2000-arm64.apk > dist/SHA256.txt
+          unzip -t dist/Nuwe-Mapa-0.4.3-Fruit-Aero-2000-arm64.apk | tail -1
           ls -lh dist
 
       - name: Archive Nuwe Mapa APK
         uses: actions/upload-artifact@v7
         with:
-          name: nuwe-mapa-ui-v42-apk
+          name: nuwe-mapa-ui-v43-apk
           path: dist/*
           retention-days: 30
           if-no-files-found: error
