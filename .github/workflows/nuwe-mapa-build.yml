@@ -88,6 +88,7 @@ jobs:
           python3 host/nuwe-mapa/nuwe_v42_packaging_fix.py android
           python3 host/nuwe-mapa/nuwe_ui_v43.py android
           python3 host/nuwe-mapa/nuwe_v44_icon_package_fix.py android
+          python3 host/nuwe-mapa/nuwe_v45_install_icon_fix.py android
 
       - name: Verify Nuwe UI and launcher before build
         shell: bash
@@ -97,18 +98,18 @@ jobs:
           grep -q 'android:icon="@mipmap/nuwe_launcher"' android/OsmAnd/AndroidManifest.xml
           grep -q 'android:roundIcon="@mipmap/nuwe_launcher"' android/OsmAnd/AndroidManifest.xml
           grep -q 'applicationId "app.nuwe.mapa"' android/OsmAnd/build.gradle
-          grep -q 'versionName "0.4.4"' android/OsmAnd/build.gradle
-          test -f android/OsmAnd/res/mipmap-anydpi-v26/nuwe_launcher.xml
-          grep -q 'nuwe_launcher_foreground' android/OsmAnd/res/mipmap-anydpi-v26/nuwe_launcher.xml
+          grep -q 'versionCode 5405' android/OsmAnd/build.gradle
+          grep -q 'versionName "0.4.5"' android/OsmAnd/build.gradle
+          test ! -f android/OsmAnd/res/mipmap-anydpi-v26/nuwe_launcher.xml
+          test ! -f android/OsmAnd/res/mipmap-anydpi-v26/icon.xml
+          test ! -f android/OsmAnd/res/mipmap-anydpi-v26/icon_free.xml
+          test ! -f android/OsmAnd/res/mipmap-anydpi-v26/icon_nightly.xml
           for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
             test -f "android/OsmAnd/res/mipmap-$d/nuwe_launcher.png"
             cmp "android/OsmAnd/res/mipmap-$d/nuwe_launcher.png" "android/OsmAnd/res/mipmap-$d/icon.png"
             cmp "android/OsmAnd/res/mipmap-$d/nuwe_launcher.png" "android/OsmAnd/res/mipmap-$d/icon_free.png"
             cmp "android/OsmAnd/res/mipmap-$d/nuwe_launcher.png" "android/OsmAnd/res/mipmap-$d/icon_nightly.png"
           done
-          grep -q 'nuwe_launcher_foreground' android/OsmAnd/res/mipmap-anydpi-v26/icon.xml
-          grep -q 'nuwe_launcher_foreground' android/OsmAnd/res/mipmap-anydpi-v26/icon_free.xml
-          grep -q 'nuwe_launcher_foreground' android/OsmAnd/res/mipmap-anydpi-v26/icon_nightly.xml
           test -f android/OsmAnd/res/drawable/nuwe2000_orb.xml
           test -f android/OsmAnd/res/drawable/nuwe43_layers.xml
           test -f android/OsmAnd/res/drawable/nuwe43_settings_card.xml
@@ -166,10 +167,10 @@ jobs:
           "$APKSIGNER" sign \
             --key signing/testkey.pk8 \
             --cert signing/testkey.x509.pem \
-            --out dist/Nuwe-Mapa-0.4.4-Fruit-Aero-2000-arm64.apk \
+            --out dist/Nuwe-Mapa-0.4.5-Fruit-Aero-2000-arm64.apk \
             work/nuwe-aligned.apk
 
-          FINAL=dist/Nuwe-Mapa-0.4.4-Fruit-Aero-2000-arm64.apk
+          FINAL=dist/Nuwe-Mapa-0.4.5-Fruit-Aero-2000-arm64.apk
           "$APKSIGNER" verify --verbose --print-certs "$FINAL" > dist/APK_SIGNATURE.txt
           "$ZIPALIGN" -c -p 4 "$FINAL"
           unzip -t "$FINAL" > dist/APK_ZIP_TEST.txt
@@ -177,15 +178,14 @@ jobs:
 
           "$AAPT2" dump badging "$FINAL" > dist/APK_BADGING.txt
           grep -q "package: name='app.nuwe.mapa'" dist/APK_BADGING.txt
+          grep -q "versionCode='5405'" dist/APK_BADGING.txt
+          grep -q "versionName='0.4.5'" dist/APK_BADGING.txt
           grep -q "application-label:'Nuwe Mapa'" dist/APK_BADGING.txt
           grep -q "application-icon-" dist/APK_BADGING.txt
-          grep -q "nuwe_launcher" dist/APK_BADGING.txt
 
           "$AAPT2" dump xmltree "$FINAL" --file AndroidManifest.xml > dist/APK_MANIFEST_TREE.txt
-          grep -q 'app.nuwe.mapa' dist/APK_BADGING.txt
-
           unzip -l "$FINAL" > dist/APK_FILE_LIST.txt
-          grep -q 'nuwe_launcher' dist/APK_FILE_LIST.txt
+          grep -q 'res/mipmap-.*/nuwe_launcher.png' dist/APK_FILE_LIST.txt
           sha256sum "$FINAL" > dist/SHA256.txt
 
       - name: Prepare APK artifact
@@ -203,12 +203,13 @@ jobs:
           cp android/NUWE_V42_PACKAGING_NOTICE.txt dist/NUWE_V42_PACKAGING_NOTICE.txt
           cp android/NUWE_UI_V43_NOTICE.txt dist/NUWE_UI_V43_NOTICE.txt
           cp android/NUWE_V44_ICON_PACKAGE_NOTICE.txt dist/NUWE_V44_ICON_PACKAGE_NOTICE.txt
+          cp android/NUWE_V45_INSTALL_ICON_NOTICE.txt dist/NUWE_V45_INSTALL_ICON_NOTICE.txt
           ls -lh dist
 
       - name: Archive Nuwe Mapa APK
         uses: actions/upload-artifact@v7
         with:
-          name: nuwe-mapa-ui-v44-apk
+          name: nuwe-mapa-ui-v45-apk
           path: dist/*
           retention-days: 30
           if-no-files-found: error
