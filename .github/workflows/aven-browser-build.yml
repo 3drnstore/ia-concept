@@ -39,15 +39,21 @@ jobs:
           unzip -q /tmp/ublock.xpi -d aven-browser/app/src/main/assets/ublock
           test -f aven-browser/app/src/main/assets/ublock/manifest.json
 
-      - name: Validate bundled Aven media detector
+      - name: Validate Aven media and context extensions
         run: |
           set -euxo pipefail
           test -f aven-browser/app/src/main/assets/aven_media/manifest.json
           test -f aven-browser/app/src/main/assets/aven_media/background.js
           test -f aven-browser/app/src/main/assets/aven_media/content.js
+          test -f aven-browser/app/src/main/java/app/aven/browser/ContextActionActivity.java
           grep -q 'media-detector@aven.app' aven-browser/app/src/main/assets/aven_media/manifest.json
+          grep -q 'contextActionRequest' aven-browser/app/src/main/assets/aven_media/content.js
+          grep -q 'contextAction' aven-browser/app/src/main/assets/aven_media/background.js
+          grep -q 'm3u8' aven-browser/app/src/main/assets/aven_media/background.js
+          grep -q 'resolveHlsPlaylist' aven-browser/app/src/main/java/app/aven/browser/MediaPromptActivity.java
+          grep -q 'ContextActionActivity' aven-browser/app/src/main/AndroidManifest.xml
 
-      - name: Apply Aven 1.2.2 UX patch
+      - name: Apply Aven UX patch
         run: |
           set -euxo pipefail
           python3 aven-browser/tools/patch_1_2_2.py
@@ -91,7 +97,7 @@ jobs:
         run: |
           set -euxo pipefail
           INPUT='aven-browser/app/build/outputs/apk/release/app-release-unsigned.apk'
-          OUTPUT='Aven-1.2.2-arm64-aligned-unsigned.apk'
+          OUTPUT='Aven-1.2.3-arm64-aligned-unsigned.apk'
           BUILD_TOOLS=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
           test -s "$INPUT"
           "$BUILD_TOOLS/zipalign" -p -f 4 "$INPUT" "$OUTPUT"
@@ -102,7 +108,7 @@ jobs:
       - name: Verify unsigned package metadata and icon
         run: |
           set -euxo pipefail
-          APK='Aven-1.2.2-arm64-aligned-unsigned.apk'
+          APK='Aven-1.2.3-arm64-aligned-unsigned.apk'
           test -s "$APK"
           unzip -t "$APK" >/dev/null
           unzip -l "$APK" | grep -q 'assets/aven_media/manifest.json'
@@ -121,16 +127,16 @@ jobs:
           grep -q "application-label:'Aven'" /tmp/badging.txt
           grep -q 'application-icon-' /tmp/badging.txt
           grep -q "sdkVersion:'26'" /tmp/badging.txt
-          grep -q "versionCode='5'" /tmp/badging.txt
-          grep -q "versionName='1.2.2'" /tmp/badging.txt
-          sha256sum "$APK" > Aven-1.2.2-arm64-aligned-unsigned.apk.sha256
+          grep -q "versionCode='6'" /tmp/badging.txt
+          grep -q "versionName='1.2.3'" /tmp/badging.txt
+          sha256sum "$APK" > Aven-1.2.3-arm64-aligned-unsigned.apk.sha256
 
       - name: Upload unsigned signing pack
         uses: actions/upload-artifact@v4
         with:
-          name: Aven-1.2.2-Unsigned-Signing-Pack
+          name: Aven-1.2.3-Unsigned-Signing-Pack
           path: |
-            Aven-1.2.2-arm64-aligned-unsigned.apk
-            Aven-1.2.2-arm64-aligned-unsigned.apk.sha256
+            Aven-1.2.3-arm64-aligned-unsigned.apk
+            Aven-1.2.3-arm64-aligned-unsigned.apk.sha256
             Aven-apksigner.jar
           retention-days: 30
