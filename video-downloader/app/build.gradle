@@ -31,6 +31,13 @@ android {
         targetCompatibility JavaVersion.VERSION_1_8
     }
 
+    // Este APK é distribuído por sideload. O targetSdk 28 é mantido
+    // deliberadamente porque o motor Python/curl-cffi precisa executar o
+    // runtime extraído no armazenamento privado do app.
+    lint {
+        disable 'ExpiredTargetSdkVersion'
+    }
+
     packaging {
         jniLibs {
             useLegacyPackaging = true
