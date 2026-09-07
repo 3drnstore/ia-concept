@@ -18,6 +18,8 @@ import java.util.Set;
 public class AvenApplication extends Application {
     private static final String TAG = "Aven";
     private static final String MEDIA_EXTENSION_ID = "media-detector@aven.app";
+    private static final String UBLOCK_EXTENSION_ID = "uBlock0@raymondhill.net";
+
     private static AvenApplication instance;
 
     private final Set<String> promptedMediaUrls = new HashSet<>();
@@ -25,6 +27,7 @@ public class AvenApplication extends Application {
     private ContentBlocking.Settings contentBlocking;
     private WebExtension ublock;
     private WebExtension mediaDetector;
+    private boolean extensionsInitializationStarted;
 
     public static AvenApplication get() { return instance; }
     public GeckoRuntime runtime() { return runtime; }
@@ -66,58 +69,85 @@ public class AvenApplication extends Application {
             contentBlocking.setEnhancedTrackingProtectionLevel(ContentBlocking.EtpLevel.NONE);
         }
 
+        // Keep startup intentionally small. WebExtensions are loaded lazily on the
+        // first real navigation so a slow or broken add-on can never kill the home UI.
         runtime = GeckoRuntime.create(this, settings);
-        installUblock();
-        installMediaDetector();
     }
 
-    private void installUblock() {
-        runtime.getWebExtensionController()
-                .installBuiltIn("resource://android/assets/ublock/")
-                .accept(extension -> {
-                    ublock = extension;
-                    runtime.getWebExtensionController().setAllowedInPrivateBrowsing(extension, true);
-                    applyAdBlockPreference();
-                    Log.i(TAG, "uBlock Origin integrado e carregado: " + extension.id);
-                }, error -> Log.e(TAG, "Falha ao carregar uBlock Origin integrado", error));
+    public synchronized void ensureBrowserExtensions() {
+        if (extensionsInitializationStarted || runtime == null) return;
+        extensionsInitializationStarted = true;
+        installUblockSafely();
+        installMediaDetectorSafely();
     }
 
-    private void installMediaDetector() {
-        runtime.getWebExtensionController()
-                .ensureBuiltIn("resource://android/assets/aven_media/", MEDIA_EXTENSION_ID)
-                .accept(extension -> {
-                    mediaDetector = extension;
-                    runtime.getWebExtensionController().setAllowedInPrivateBrowsing(extension, true);
-                    extension.setMessageDelegate(new WebExtension.MessageDelegate() {
-                        @Override
-                        public GeckoResult<Object> onMessage(String nativeApp, Object message, WebExtension.MessageSender sender) {
-                            if (!(message instanceof JSONObject)) return null;
-                            JSONObject data = (JSONObject) message;
-                            if (!"mediaDetected".equals(data.optString("type"))) return null;
-
-                            String url = data.optString("url", "");
-                            if (!(url.startsWith("https://") || url.startsWith("http://"))) return null;
-                            if (!isVideoDownloaderEnabled()) return null;
-
-                            synchronized (promptedMediaUrls) {
-                                if (!promptedMediaUrls.add(url)) return null;
-                            }
-
-                            Intent prompt = new Intent(AvenApplication.this, MediaPromptActivity.class);
-                            prompt.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-                            prompt.putExtra(MediaPromptActivity.EXTRA_URL, url);
-                            prompt.putExtra(MediaPromptActivity.EXTRA_PAGE_URL, data.optString("pageUrl", ""));
-                            prompt.putExtra(MediaPromptActivity.EXTRA_TITLE, data.optString("title", "Video"));
-                            prompt.putExtra(MediaPromptActivity.EXTRA_MIME, data.optString("mime", ""));
-                            prompt.putExtra(MediaPromptActivity.EXTRA_COOKIES, data.optString("cookies", ""));
-                            prompt.putExtra(MediaPromptActivity.EXTRA_USER_AGENT, data.optString("userAgent", ""));
-                            prompt.putExtra(MediaPromptActivity.EXTRA_DURATION, data.optDouble("duration", 0d));
-                            startActivity(prompt);
-                            return null;
+    private void installUblockSafely() {
+        try {
+            runtime.getWebExtensionController()
+                    .ensureBuiltIn("resource://android/assets/ublock/", UBLOCK_EXTENSION_ID)
+                    .accept(extension -> {
+                        try {
+                            ublock = extension;
+                            runtime.getWebExtensionController().setAllowedInPrivateBrowsing(extension, true);
+                            applyAdBlockPreference();
+                            Log.i(TAG, "uBlock Origin integrado e carregado: " + extension.id);
+                        } catch (Throwable error) {
+                            Log.e(TAG, "Falha ao finalizar inicialização do uBlock", error);
                         }
-                    }, "aven_media");
-                    Log.i(TAG, "Detector de mídia Aven carregado: " + extension.id);
-                }, error -> Log.e(TAG, "Falha ao carregar detector de mídia Aven", error));
+                    }, error -> Log.e(TAG, "Falha ao carregar uBlock Origin integrado", error));
+        } catch (Throwable error) {
+            Log.e(TAG, "Falha síncrona ao iniciar uBlock Origin", error);
+        }
+    }
+
+    private void installMediaDetectorSafely() {
+        try {
+            runtime.getWebExtensionController()
+                    .ensureBuiltIn("resource://android/assets/aven_media/", MEDIA_EXTENSION_ID)
+                    .accept(extension -> {
+                        try {
+                            mediaDetector = extension;
+                            runtime.getWebExtensionController().setAllowedInPrivateBrowsing(extension, true);
+                            extension.setMessageDelegate(new WebExtension.MessageDelegate() {
+                                @Override
+                                public GeckoResult<Object> onMessage(String nativeApp, Object message, WebExtension.MessageSender sender) {
+                                    try {
+                                        if (!(message instanceof JSONObject)) return null;
+                                        JSONObject data = (JSONObject) message;
+                                        if (!"mediaDetected".equals(data.optString("type"))) return null;
+
+                                        String url = data.optString("url", "");
+                                        if (!(url.startsWith("https://") || url.startsWith("http://"))) return null;
+                                        if (!isVideoDownloaderEnabled()) return null;
+
+                                        synchronized (promptedMediaUrls) {
+                                            if (!promptedMediaUrls.add(url)) return null;
+                                        }
+
+                                        Intent prompt = new Intent(AvenApplication.this, MediaPromptActivity.class);
+                                        prompt.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                                        prompt.putExtra(MediaPromptActivity.EXTRA_URL, url);
+                                        prompt.putExtra(MediaPromptActivity.EXTRA_PAGE_URL, data.optString("pageUrl", ""));
+                                        prompt.putExtra(MediaPromptActivity.EXTRA_TITLE, data.optString("title", "Vídeo"));
+                                        prompt.putExtra(MediaPromptActivity.EXTRA_MIME, data.optString("mime", ""));
+                                        prompt.putExtra(MediaPromptActivity.EXTRA_COOKIES, data.optString("cookies", ""));
+                                        prompt.putExtra(MediaPromptActivity.EXTRA_USER_AGENT, data.optString("userAgent", ""));
+                                        prompt.putExtra(MediaPromptActivity.EXTRA_DURATION, data.optDouble("duration", 0d));
+                                        startActivity(prompt);
+                                    } catch (Throwable error) {
+                                        Log.e(TAG, "Erro ao processar mídia detectada", error);
+                                    }
+                                    return null;
+                                }
+                            }, "aven_media");
+                            Log.i(TAG, "Detector de mídia Aven carregado: " + extension.id);
+                        } catch (Throwable error) {
+                            Log.e(TAG, "Falha ao finalizar inicialização do detector de mídia", error);
+                        }
+                    }, error -> Log.e(TAG, "Falha ao carregar detector de mídia Aven", error));
+        } catch (Throwable error) {
+            Log.e(TAG, "Falha síncrona ao iniciar detector de mídia", error);
+        }
     }
 
     public void setAdBlockEnabled(boolean enabled) {
@@ -130,12 +160,16 @@ public class AvenApplication extends Application {
     }
 
     private void applyAdBlockPreference() {
-        if (ublock == null) return;
-        WebExtensionController controller = runtime.getWebExtensionController();
-        if (isAdBlockEnabled()) {
-            controller.enable(ublock, WebExtensionController.EnableSource.USER);
-        } else {
-            controller.disable(ublock, WebExtensionController.EnableSource.USER);
+        if (ublock == null || runtime == null) return;
+        try {
+            WebExtensionController controller = runtime.getWebExtensionController();
+            if (isAdBlockEnabled()) {
+                controller.enable(ublock, WebExtensionController.EnableSource.USER);
+            } else {
+                controller.disable(ublock, WebExtensionController.EnableSource.USER);
+            }
+        } catch (Throwable error) {
+            Log.e(TAG, "Falha ao aplicar preferência de bloqueio de anúncios", error);
         }
     }
 
