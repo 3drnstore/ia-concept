@@ -30,12 +30,23 @@ public class AvenApplication extends Application {
     private boolean extensionsInitializationStarted;
 
     public static AvenApplication get() { return instance; }
-    public GeckoRuntime runtime() { return runtime; }
 
     @Override
     public void onCreate() {
         super.onCreate();
         instance = this;
+        // Intentionally do not create GeckoRuntime here. The approved Aven home UI
+        // must remain stable even if the device/Gecko/add-on stack has a problem.
+        // Gecko starts only on the first real navigation.
+    }
+
+    public synchronized GeckoRuntime runtime() {
+        ensureRuntime();
+        return runtime;
+    }
+
+    private synchronized void ensureRuntime() {
+        if (runtime != null) return;
 
         contentBlocking = new ContentBlocking.Settings.Builder()
                 .antiTracking(ContentBlocking.AntiTracking.STRICT)
@@ -69,12 +80,12 @@ public class AvenApplication extends Application {
             contentBlocking.setEnhancedTrackingProtectionLevel(ContentBlocking.EtpLevel.NONE);
         }
 
-        // Keep startup intentionally small. WebExtensions are loaded lazily on the
-        // first real navigation so a slow or broken add-on can never kill the home UI.
         runtime = GeckoRuntime.create(this, settings);
+        Log.i(TAG, "GeckoRuntime inicializado sob demanda");
     }
 
     public synchronized void ensureBrowserExtensions() {
+        ensureRuntime();
         if (extensionsInitializationStarted || runtime == null) return;
         extensionsInitializationStarted = true;
         installUblockSafely();
@@ -175,8 +186,10 @@ public class AvenApplication extends Application {
 
     public void setAntiTrackingEnabled(boolean enabled) {
         getSharedPreferences("aven", MODE_PRIVATE).edit().putBoolean("anti_tracking", enabled).apply();
-        contentBlocking.setAntiTracking(enabled ? ContentBlocking.AntiTracking.STRICT : ContentBlocking.AntiTracking.NONE);
-        contentBlocking.setEnhancedTrackingProtectionLevel(enabled ? ContentBlocking.EtpLevel.STRICT : ContentBlocking.EtpLevel.NONE);
+        if (contentBlocking != null) {
+            contentBlocking.setAntiTracking(enabled ? ContentBlocking.AntiTracking.STRICT : ContentBlocking.AntiTracking.NONE);
+            contentBlocking.setEnhancedTrackingProtectionLevel(enabled ? ContentBlocking.EtpLevel.STRICT : ContentBlocking.EtpLevel.NONE);
+        }
     }
 
     public boolean isAntiTrackingEnabled() {
