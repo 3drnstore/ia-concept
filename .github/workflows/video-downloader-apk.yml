@@ -76,7 +76,6 @@ jobs:
           FINAL=VideoDownloader-v1.1.1.apk
 
           test -s "$UNSIGNED"
-
           "$BUILD_TOOLS/zipalign" -p -f 4 "$UNSIGNED" "$ALIGNED"
 
           keytool -genkeypair -noprompt \
@@ -108,11 +107,12 @@ jobs:
           BUILD_TOOLS="$ANDROID_HOME/build-tools/35.0.0"
           APK=VideoDownloader-v1.1.1.apk
 
-          "$BUILD_TOOLS/zipalign" -c -v 4 "$APK"
+          "$BUILD_TOOLS/zipalign" -c 4 "$APK"
+          jarsigner -verify -verbose "$APK" | tee /tmp/jarsigner.txt
           "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK" | tee /tmp/apksigner.txt
           "$BUILD_TOOLS/aapt2" dump badging "$APK" | tee /tmp/badging.txt
 
-          grep -q 'Verified using v1 scheme (JAR signing): true' /tmp/apksigner.txt
+          grep -q 'jar verified' /tmp/jarsigner.txt
           grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' /tmp/apksigner.txt
           grep -q 'Verified using v3 scheme (APK Signature Scheme v3): true' /tmp/apksigner.txt
           grep -q "package: name='app.videodownloader.local'" /tmp/badging.txt
