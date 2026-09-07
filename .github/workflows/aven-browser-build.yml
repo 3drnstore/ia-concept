@@ -47,10 +47,30 @@ jobs:
         working-directory: aven-browser
         run: gradle --no-daemon assembleDebug
 
+      - name: Sign compatibility APK
+        run: |
+          set -euxo pipefail
+          INPUT='aven-browser/app/build/outputs/apk/debug/app-debug.apk'
+          FINAL='Aven-1.1.0-arm64.apk'
+          BUILD_TOOLS=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
+          test -f "$HOME/.android/debug.keystore"
+          "$BUILD_TOOLS/zipalign" -p -f 4 "$INPUT" /tmp/aven-aligned.apk
+          "$BUILD_TOOLS/apksigner" sign \
+            --ks "$HOME/.android/debug.keystore" \
+            --ks-key-alias androiddebugkey \
+            --ks-pass pass:android \
+            --key-pass pass:android \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --v4-signing-enabled false \
+            --out "$FINAL" \
+            /tmp/aven-aligned.apk
+
       - name: Verify APK package, icon and signatures
         run: |
           set -euxo pipefail
-          APK='aven-browser/app/build/outputs/apk/debug/app-debug.apk'
+          APK='Aven-1.1.0-arm64.apk'
           test -s "$APK"
           unzip -t "$APK" >/dev/null
           unzip -l "$APK" | grep -q 'assets/aven_media/manifest.json'
@@ -69,11 +89,7 @@ jobs:
           fi
           grep -q "package: name='app.aven.browser'" /tmp/badging.txt
           grep -q "application-label:'Aven'" /tmp/badging.txt
-
-      - name: Rename APK
-        run: |
-          cp aven-browser/app/build/outputs/apk/debug/app-debug.apk Aven-1.1.0-arm64.apk
-          sha256sum Aven-1.1.0-arm64.apk > Aven-1.1.0-arm64.apk.sha256
+          sha256sum "$APK" > Aven-1.1.0-arm64.apk.sha256
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
