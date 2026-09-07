@@ -26,6 +26,14 @@ browser.webRequest.onHeadersReceived.addListener(details => {
   const mime = headerValue(details.responseHeaders, "content-type");
   const kind = classify(details.url, mime);
   if (!kind) return;
+
+  const previous = recentMediaByTab.get(details.tabId);
+  if (previous && previous.kind === "hls" && kind === "direct" && Date.now() - previous.seenAt <= 120000) {
+    // HLS segment responses may look like ordinary video. Keep the manifest URL,
+    // otherwise the downloader would save only one segment.
+    return;
+  }
+
   recentMediaByTab.set(details.tabId, {
     url: details.url,
     mime,
@@ -83,9 +91,13 @@ browser.runtime.onMessage.addListener(async (message, sender) => {
   let mime = "";
   let kind = directSource ? "direct" : "";
 
-  // If the media element exposes a blob: URL, the real MP4/HLS request usually
-  // appeared in webRequest shortly before playback. Prefer that network URL.
-  if (!url && candidate) {
+  // HLS discovered by webRequest wins over a direct segment URL.
+  if (candidate && candidate.kind === "hls") {
+    url = candidate.url;
+    mime = candidate.mime;
+    kind = candidate.kind;
+  } else if (!url && candidate) {
+    // If the media element exposes a blob: URL, use the real network media URL.
     url = candidate.url;
     mime = candidate.mime;
     kind = candidate.kind;
