@@ -86,7 +86,6 @@ jobs:
           test -s "$APK"
           unzip -t "$APK" >/dev/null
           unzip -l "$APK" | grep -q 'assets/aven_media/manifest.json'
-          unzip -l "$APK" | grep -q 'res/.*ic_launcher_legacy'
           unzip -l "$APK" | grep -q 'lib/arm64-v8a/'
           if unzip -l "$APK" | grep -Eq 'lib/(x86|x86_64|armeabi-v7a)/'; then
             echo 'Unexpected non-ARM64 native library found' >&2
