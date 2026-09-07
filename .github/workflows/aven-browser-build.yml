@@ -8,6 +8,10 @@ on:
       - '.github/workflows/aven-browser-build.yml'
   workflow_dispatch:
 
+concurrency:
+  group: aven-browser-build
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -52,8 +56,9 @@ jobs:
           grep -q 'Pesquisar ou digitar endereço' "$SRC"
           grep -q 'Privacidade e segurança' "$SRC"
           grep -q 'Downloader de vídeos' "$SRC"
+          grep -q 'ensureRuntime' "$APP"
           grep -q 'ensureBrowserExtensions' "$APP"
-          ! grep -q 'installUblock();' "$APP"
+          ! grep -q 'runtime = GeckoRuntime.create(this, settings);' "$APP"
 
       - name: Normalize fractional density helper
         run: |
@@ -75,42 +80,22 @@ jobs:
         working-directory: aven-browser
         run: gradle --no-daemon assembleRelease
 
-      - name: Sign compatibility APK
+      - name: Prepare aligned unsigned APK for permanent signing
         run: |
           set -euxo pipefail
           INPUT='aven-browser/app/build/outputs/apk/release/app-release-unsigned.apk'
-          FINAL='Aven-1.2.0-arm64.apk'
-          KEYSTORE='/tmp/aven-test.keystore'
+          OUTPUT='Aven-1.2.1-arm64-aligned-unsigned.apk'
           BUILD_TOOLS=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
-
           test -s "$INPUT"
-          keytool -genkeypair -noprompt \
-            -keystore "$KEYSTORE" \
-            -storepass avenbuild \
-            -keypass avenbuild \
-            -alias aven \
-            -keyalg RSA \
-            -keysize 2048 \
-            -validity 10000 \
-            -dname 'CN=Aven Test,O=Aven,C=BR'
+          "$BUILD_TOOLS/zipalign" -p -f 4 "$INPUT" "$OUTPUT"
+          "$BUILD_TOOLS/zipalign" -c -P 16 -v 4 "$OUTPUT"
+          cp "$BUILD_TOOLS/lib/apksigner.jar" Aven-apksigner.jar
+          test -s Aven-apksigner.jar
 
-          "$BUILD_TOOLS/zipalign" -p -f 4 "$INPUT" /tmp/aven-aligned.apk
-          "$BUILD_TOOLS/apksigner" sign \
-            --ks "$KEYSTORE" \
-            --ks-key-alias aven \
-            --ks-pass pass:avenbuild \
-            --key-pass pass:avenbuild \
-            --v1-signing-enabled true \
-            --v2-signing-enabled true \
-            --v3-signing-enabled true \
-            --v4-signing-enabled false \
-            --out "$FINAL" \
-            /tmp/aven-aligned.apk
-
-      - name: Verify APK package, icon and signatures
+      - name: Verify unsigned package metadata and icon
         run: |
           set -euxo pipefail
-          APK='Aven-1.2.0-arm64.apk'
+          APK='Aven-1.2.1-arm64-aligned-unsigned.apk'
           test -s "$APK"
           unzip -t "$APK" >/dev/null
           unzip -l "$APK" | grep -q 'assets/aven_media/manifest.json'
@@ -119,13 +104,7 @@ jobs:
             echo 'Unexpected non-ARM64 native library found' >&2
             exit 1
           fi
-
           BUILD_TOOLS=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
-          "$BUILD_TOOLS/zipalign" -c -P 16 -v 4 "$APK"
-          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK" | tee /tmp/apksigner.txt
-          grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' /tmp/apksigner.txt
-          grep -q 'Verified using v3 scheme (APK Signature Scheme v3): true' /tmp/apksigner.txt
-
           if [ -x "$BUILD_TOOLS/aapt" ]; then
             "$BUILD_TOOLS/aapt" dump badging "$APK" | tee /tmp/badging.txt
           else
@@ -135,13 +114,16 @@ jobs:
           grep -q "application-label:'Aven'" /tmp/badging.txt
           grep -q 'application-icon-' /tmp/badging.txt
           grep -q "sdkVersion:'26'" /tmp/badging.txt
-          sha256sum "$APK" > Aven-1.2.0-arm64.apk.sha256
+          grep -q "versionCode='4'" /tmp/badging.txt
+          grep -q "versionName='1.2.1'" /tmp/badging.txt
+          sha256sum "$APK" > Aven-1.2.1-arm64-aligned-unsigned.apk.sha256
 
-      - name: Upload APK
+      - name: Upload unsigned signing pack
         uses: actions/upload-artifact@v4
         with:
-          name: Aven-1.2.0-ARM64-APK
+          name: Aven-1.2.1-Unsigned-Signing-Pack
           path: |
-            Aven-1.2.0-arm64.apk
-            Aven-1.2.0-arm64.apk.sha256
+            Aven-1.2.1-arm64-aligned-unsigned.apk
+            Aven-1.2.1-arm64-aligned-unsigned.apk.sha256
+            Aven-apksigner.jar
           retention-days: 30
