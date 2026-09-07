@@ -243,7 +243,7 @@ public class MainActivity extends Activity {
                 final boolean wasCanceled = cancelRequested || e instanceof InterruptedException;
                 runOnUiThread(() -> {
                     progressBar.setProgress(0);
-                    statusText.setText(wasCanceled ? R.string.download_canceled : shortError(e));
+                    statusText.setText(wasCanceled ? getString(R.string.download_canceled) : shortError(e));
                     if (!wasCanceled) Toast.makeText(this, R.string.download_failed, Toast.LENGTH_LONG).show();
                 });
             } finally {
