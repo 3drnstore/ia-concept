@@ -43,23 +43,35 @@ jobs:
           test -f aven-browser/app/src/main/assets/aven_media/content.js
           grep -q 'media-detector@aven.app' aven-browser/app/src/main/assets/aven_media/manifest.json
 
-      - name: Build debug APK
+      - name: Build unsigned release APK
         working-directory: aven-browser
-        run: gradle --no-daemon assembleDebug
+        run: gradle --no-daemon assembleRelease
 
       - name: Sign compatibility APK
         run: |
           set -euxo pipefail
-          INPUT='aven-browser/app/build/outputs/apk/debug/app-debug.apk'
+          INPUT='aven-browser/app/build/outputs/apk/release/app-release-unsigned.apk'
           FINAL='Aven-1.1.0-arm64.apk'
+          KEYSTORE='/tmp/aven-test.keystore'
           BUILD_TOOLS=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
-          test -f "$HOME/.android/debug.keystore"
+
+          test -s "$INPUT"
+          keytool -genkeypair -noprompt \
+            -keystore "$KEYSTORE" \
+            -storepass avenbuild \
+            -keypass avenbuild \
+            -alias aven \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname 'CN=Aven Test,O=Aven,C=BR'
+
           "$BUILD_TOOLS/zipalign" -p -f 4 "$INPUT" /tmp/aven-aligned.apk
           "$BUILD_TOOLS/apksigner" sign \
-            --ks "$HOME/.android/debug.keystore" \
-            --ks-key-alias androiddebugkey \
-            --ks-pass pass:android \
-            --key-pass pass:android \
+            --ks "$KEYSTORE" \
+            --ks-key-alias aven \
+            --ks-pass pass:avenbuild \
+            --key-pass pass:avenbuild \
             --v1-signing-enabled true \
             --v2-signing-enabled true \
             --v3-signing-enabled true \
@@ -74,9 +86,15 @@ jobs:
           test -s "$APK"
           unzip -t "$APK" >/dev/null
           unzip -l "$APK" | grep -q 'assets/aven_media/manifest.json'
-          unzip -l "$APK" | grep -q 'res/.*ic_launcher'
+          unzip -l "$APK" | grep -q 'res/.*ic_launcher_legacy'
+          unzip -l "$APK" | grep -q 'lib/arm64-v8a/'
+          if unzip -l "$APK" | grep -Eq 'lib/(x86|x86_64|armeabi-v7a)/'; then
+            echo 'Unexpected non-ARM64 native library found' >&2
+            exit 1
+          fi
 
           BUILD_TOOLS=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
+          "$BUILD_TOOLS/zipalign" -c -P 16 -v 4 "$APK"
           "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK" | tee /tmp/apksigner.txt
           grep -q 'Verified using v1 scheme (JAR signing): true' /tmp/apksigner.txt
           grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' /tmp/apksigner.txt
@@ -89,6 +107,7 @@ jobs:
           fi
           grep -q "package: name='app.aven.browser'" /tmp/badging.txt
           grep -q "application-label:'Aven'" /tmp/badging.txt
+          grep -q 'application-icon-' /tmp/badging.txt
           sha256sum "$APK" > Aven-1.1.0-arm64.apk.sha256
 
       - name: Upload APK
