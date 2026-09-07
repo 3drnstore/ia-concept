@@ -40,8 +40,6 @@ jobs:
 
           mkdir -p "$JNI_DIR" "$RAW_DIR"
 
-          # Python 3.14.6 package maintained for Android downloaders. The arm64
-          # build contains curl-cffi, requests, brotli, websockets and certifi.
           curl -fL --retry 3 \
             'https://github.com/deniscerri/ytdlnis-packages/releases/download/python-3.14.6/app-arm64-v8a-release.apk' \
             -o "$PY_APK"
@@ -52,10 +50,6 @@ jobs:
           test -s "$JNI_DIR/libpython.so"
           test -s "$JNI_DIR/libpython.zip.so"
 
-          sha256sum "$JNI_DIR/libpython.so" > /tmp/expected-python-launcher.sha256
-          sha256sum "$JNI_DIR/libpython.zip.so" > /tmp/expected-python-bundle.sha256
-
-          # Override the stale yt-dlp resource shipped by youtubedl-android.
           curl -fL --retry 3 \
             'https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp' \
             -o "$RAW_DIR/ytdlp"
@@ -67,15 +61,69 @@ jobs:
         with:
           gradle-version: '8.9'
 
-      - name: Build debug APK
+      - name: Build unsigned release APK
         working-directory: video-downloader
-        run: gradle --stacktrace :app:assembleDebug
+        run: gradle --stacktrace :app:assembleRelease
 
-      - name: Validate advanced engine inside APK
+      - name: Align and sign APK with v1 v2 v3
         shell: bash
         run: |
           set -euo pipefail
-          APK=video-downloader/app/build/outputs/apk/debug/app-debug.apk
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/35.0.0"
+          UNSIGNED=video-downloader/app/build/outputs/apk/release/app-release-unsigned.apk
+          ALIGNED=/tmp/VideoDownloader-v1.1.1-aligned.apk
+          KEYSTORE=/tmp/video-downloader.keystore
+          FINAL=VideoDownloader-v1.1.1.apk
+
+          test -s "$UNSIGNED"
+
+          "$BUILD_TOOLS/zipalign" -p -f 4 "$UNSIGNED" "$ALIGNED"
+
+          keytool -genkeypair -noprompt \
+            -keystore "$KEYSTORE" \
+            -storepass videodownloader \
+            -keypass videodownloader \
+            -alias videodownloader \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -dname 'CN=Video Downloader,O=Local,C=BR'
+
+          "$BUILD_TOOLS/apksigner" sign \
+            --ks "$KEYSTORE" \
+            --ks-key-alias videodownloader \
+            --ks-pass pass:videodownloader \
+            --key-pass pass:videodownloader \
+            --v1-signing-enabled true \
+            --v2-signing-enabled true \
+            --v3-signing-enabled true \
+            --v4-signing-enabled false \
+            --out "$FINAL" \
+            "$ALIGNED"
+
+      - name: Validate APK package parsing and signatures
+        shell: bash
+        run: |
+          set -euo pipefail
+          BUILD_TOOLS="$ANDROID_HOME/build-tools/35.0.0"
+          APK=VideoDownloader-v1.1.1.apk
+
+          "$BUILD_TOOLS/zipalign" -c -v 4 "$APK"
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK" | tee /tmp/apksigner.txt
+          "$BUILD_TOOLS/aapt2" dump badging "$APK" | tee /tmp/badging.txt
+
+          grep -q 'Verified using v1 scheme (JAR signing): true' /tmp/apksigner.txt
+          grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' /tmp/apksigner.txt
+          grep -q 'Verified using v3 scheme (APK Signature Scheme v3): true' /tmp/apksigner.txt
+          grep -q "package: name='app.videodownloader.local'" /tmp/badging.txt
+          grep -q "sdkVersion:'24'" /tmp/badging.txt
+          grep -q "targetSdkVersion:'28'" /tmp/badging.txt
+
+      - name: Validate advanced engine inside final APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          APK=VideoDownloader-v1.1.1.apk
           SRC=video-downloader/app/src/main/jniLibs/arm64-v8a
 
           EXPECTED_LAUNCHER=$(sha256sum "$SRC/libpython.so" | awk '{print $1}')
@@ -89,17 +137,15 @@ jobs:
           test "$EXPECTED_LAUNCHER" = "$ACTUAL_LAUNCHER"
           test "$EXPECTED_BUNDLE" = "$ACTUAL_BUNDLE"
 
-          # The curl-cffi package must actually be present in the Python bundle.
           unzip -p "$APK" lib/arm64-v8a/libpython.zip.so > /tmp/python-bundle.zip
           unzip -l /tmp/python-bundle.zip | grep -q 'curl_cffi'
 
-      - name: Prepare APK
-        run: cp video-downloader/app/build/outputs/apk/debug/app-debug.apk VideoDownloader-v1.1.0.apk
+          sha256sum "$APK"
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: VideoDownloader-v1.1.0
-          path: VideoDownloader-v1.1.0.apk
+          name: VideoDownloader-v1.1.1
+          path: VideoDownloader-v1.1.1.apk
           if-no-files-found: error
           retention-days: 14
