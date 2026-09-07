@@ -4,6 +4,7 @@ plugins {
 
 android {
     namespace 'app.aven.browser'
+    // GeckoView 154 requires Android API 37.1 at compile time.
     compileSdk {
         version = release(37) {
             minorApiLevel = 1
