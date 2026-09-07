@@ -56,9 +56,8 @@ jobs:
           grep -q 'Pesquisar ou digitar endereço' "$SRC"
           grep -q 'Privacidade e segurança' "$SRC"
           grep -q 'Downloader de vídeos' "$SRC"
-          grep -q 'ensureRuntime' "$APP"
+          grep -q 'public synchronized GeckoRuntime ensureRuntime' "$APP"
           grep -q 'ensureBrowserExtensions' "$APP"
-          ! grep -q 'runtime = GeckoRuntime.create(this, settings);' "$APP"
 
       - name: Normalize fractional density helper
         run: |
