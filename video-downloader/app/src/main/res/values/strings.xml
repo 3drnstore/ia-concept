@@ -7,7 +7,8 @@
     <string name="download">Baixar vídeo</string>
     <string name="cancel">Cancelar download</string>
     <string name="engine_preparing">Preparando o motor de download…</string>
-    <string name="engine_ready">Motor pronto • sem anúncios</string>
+    <string name="engine_updating">Atualizando o motor de download…</string>
+    <string name="engine_ready">Motor atualizado • sem anúncios</string>
     <string name="engine_error">Falha ao preparar o motor</string>
     <string name="engine_not_ready">O motor ainda não está pronto.</string>
     <string name="ready_to_download">Pronto para receber um link.</string>
