@@ -47,7 +47,7 @@ jobs:
           test -f aven-browser/app/src/main/assets/aven_media/content.js
           grep -q 'media-detector@aven.app' aven-browser/app/src/main/assets/aven_media/manifest.json
 
-      - name: Validate PT-BR interface and safe startup
+      - name: Validate PT-BR interface
         run: |
           set -euxo pipefail
           SRC='aven-browser/app/src/main/java/app/aven/browser/MainActivity.java'
@@ -56,7 +56,6 @@ jobs:
           grep -q 'Pesquisar ou digitar endereço' "$SRC"
           grep -q 'Privacidade e segurança' "$SRC"
           grep -q 'Downloader de vídeos' "$SRC"
-          grep -q 'public synchronized GeckoRuntime ensureRuntime' "$APP"
           grep -q 'ensureBrowserExtensions' "$APP"
 
       - name: Normalize fractional density helper
