@@ -96,6 +96,18 @@ public class MainActivity extends Activity {
             try {
                 YoutubeDL.getInstance().init(getApplicationContext());
                 FFmpeg.getInstance().init(getApplicationContext());
+
+                // A biblioteca Android vem com um yt-dlp antigo embutido. Atualizamos
+                // para o canal estável atual antes de liberar o primeiro download.
+                runOnUiThread(() -> engineText.setText(R.string.engine_updating));
+                try {
+                    YoutubeDL.getInstance().updateYoutubeDL(
+                            getApplicationContext(), YoutubeDL.UpdateChannel._STABLE);
+                } catch (Exception ignored) {
+                    // A build também embute uma versão recente. Se a checagem online
+                    // falhar, o app continua funcional com a versão empacotada.
+                }
+
                 engineReady = true;
                 runOnUiThread(() -> {
                     engineText.setText(R.string.engine_ready);
@@ -157,6 +169,23 @@ public class MainActivity extends Activity {
         return url;
     }
 
+    private String normalizePlatformUrl(String url) {
+        String lower = url.toLowerCase(Locale.ROOT);
+        if (lower.startsWith("https://x.com/")) {
+            return "https://twitter.com/" + url.substring("https://x.com/".length());
+        }
+        if (lower.startsWith("http://x.com/")) {
+            return "https://twitter.com/" + url.substring("http://x.com/".length());
+        }
+        if (lower.startsWith("https://www.x.com/")) {
+            return "https://twitter.com/" + url.substring("https://www.x.com/".length());
+        }
+        if (lower.startsWith("http://www.x.com/")) {
+            return "https://twitter.com/" + url.substring("http://www.x.com/".length());
+        }
+        return url;
+    }
+
     private void startDownload() {
         if (!engineReady) {
             Toast.makeText(this, R.string.engine_not_ready, Toast.LENGTH_SHORT).show();
@@ -175,6 +204,8 @@ public class MainActivity extends Activity {
             urlInput.setError(getString(R.string.invalid_link));
             return;
         }
+
+        url = normalizePlatformUrl(url);
 
         if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.P &&
                 checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
@@ -208,8 +239,12 @@ public class MainActivity extends Activity {
                 request.addOption("--no-playlist");
                 request.addOption("--no-mtime");
                 request.addOption("--no-part");
-                request.addOption("--retries", "3");
-                request.addOption("--fragment-retries", "3");
+                request.addOption("--force-ipv4");
+                request.addOption("--socket-timeout", "20");
+                request.addOption("--retries", "5");
+                request.addOption("--fragment-retries", "5");
+                request.addOption("--extractor-retries", "3");
+                request.addOption("--concurrent-fragments", "3");
                 request.addOption("-f", "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best");
                 request.addOption("--merge-output-format", "mp4");
                 request.addOption("-o", new File(jobDir, "%(title)s.%(ext)s").getAbsolutePath());
@@ -363,6 +398,11 @@ public class MainActivity extends Activity {
         String message = error.getMessage();
         if (TextUtils.isEmpty(message)) message = error.getClass().getSimpleName();
         message = message.replace("ERROR:", "").trim();
+        if (message.contains("no impersonate target is available")) {
+            message = "O módulo de compatibilidade de navegador não foi carregado. Reabra o app e tente novamente.";
+        } else if (message.contains("No address associated with hostname")) {
+            message = "Falha de DNS ao acessar o site. Verifique a conexão e tente novamente.";
+        }
         if (message.length() > 420) message = message.substring(0, 420) + "…";
         return getString(R.string.error_prefix, message);
     }
