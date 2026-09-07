@@ -35,9 +35,8 @@ public class AvenApplication extends Application {
     public void onCreate() {
         super.onCreate();
         instance = this;
-        // Intentionally do not create GeckoRuntime here. The approved Aven home UI
-        // must remain stable even if the device/Gecko/add-on stack has a problem.
-        // Gecko starts only on the first real navigation.
+        // Gecko is intentionally lazy: the native Aven home remains usable even
+        // if Gecko or an extension fails on a particular device.
     }
 
     public synchronized GeckoRuntime runtime() {
@@ -125,11 +124,16 @@ public class AvenApplication extends Application {
                                     try {
                                         if (!(message instanceof JSONObject)) return null;
                                         JSONObject data = (JSONObject) message;
-                                        if (!"mediaDetected".equals(data.optString("type"))) return null;
+                                        String type = data.optString("type", "");
 
+                                        if ("contextAction".equals(type)) {
+                                            showContextActions(data);
+                                            return null;
+                                        }
+
+                                        if (!"mediaDetected".equals(type)) return null;
                                         String url = data.optString("url", "");
-                                        if (!(url.startsWith("https://") || url.startsWith("http://"))) return null;
-                                        if (!isVideoDownloaderEnabled()) return null;
+                                        if (!isHttp(url) || !isVideoDownloaderEnabled()) return null;
 
                                         synchronized (promptedMediaUrls) {
                                             if (!promptedMediaUrls.add(url)) return null;
@@ -144,9 +148,10 @@ public class AvenApplication extends Application {
                                         prompt.putExtra(MediaPromptActivity.EXTRA_COOKIES, data.optString("cookies", ""));
                                         prompt.putExtra(MediaPromptActivity.EXTRA_USER_AGENT, data.optString("userAgent", ""));
                                         prompt.putExtra(MediaPromptActivity.EXTRA_DURATION, data.optDouble("duration", 0d));
+                                        prompt.putExtra(MediaPromptActivity.EXTRA_MEDIA_KIND, data.optString("mediaKind", "direct"));
                                         startActivity(prompt);
                                     } catch (Throwable error) {
-                                        Log.e(TAG, "Erro ao processar mídia detectada", error);
+                                        Log.e(TAG, "Erro ao processar mensagem de mídia", error);
                                     }
                                     return null;
                                 }
@@ -159,6 +164,24 @@ public class AvenApplication extends Application {
         } catch (Throwable error) {
             Log.e(TAG, "Falha síncrona ao iniciar detector de mídia", error);
         }
+    }
+
+    private void showContextActions(JSONObject data) {
+        Intent intent = new Intent(this, ContextActionActivity.class);
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        intent.putExtra(ContextActionActivity.EXTRA_PAGE_URL, data.optString("pageUrl", ""));
+        intent.putExtra(ContextActionActivity.EXTRA_TITLE, data.optString("title", ""));
+        intent.putExtra(ContextActionActivity.EXTRA_LINK_URL, data.optString("linkUrl", ""));
+        intent.putExtra(ContextActionActivity.EXTRA_MEDIA_URL, data.optString("mediaUrl", ""));
+        intent.putExtra(ContextActionActivity.EXTRA_MEDIA_TYPE, data.optString("mediaType", ""));
+        intent.putExtra(ContextActionActivity.EXTRA_POSTER_URL, data.optString("posterUrl", ""));
+        intent.putExtra(ContextActionActivity.EXTRA_TEXT, data.optString("text", ""));
+        intent.putExtra(ContextActionActivity.EXTRA_USER_AGENT, data.optString("userAgent", ""));
+        startActivity(intent);
+    }
+
+    private boolean isHttp(String value) {
+        return value != null && (value.startsWith("https://") || value.startsWith("http://"));
     }
 
     public void setAdBlockEnabled(boolean enabled) {
