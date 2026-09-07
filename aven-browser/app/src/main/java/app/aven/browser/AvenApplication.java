@@ -1,20 +1,30 @@
 package app.aven.browser;
 
 import android.app.Application;
+import android.content.Intent;
 import android.util.Log;
 
+import org.json.JSONObject;
 import org.mozilla.geckoview.ContentBlocking;
+import org.mozilla.geckoview.GeckoResult;
 import org.mozilla.geckoview.GeckoRuntime;
 import org.mozilla.geckoview.GeckoRuntimeSettings;
 import org.mozilla.geckoview.WebExtension;
 import org.mozilla.geckoview.WebExtensionController;
 
+import java.util.HashSet;
+import java.util.Set;
+
 public class AvenApplication extends Application {
     private static final String TAG = "Aven";
+    private static final String MEDIA_EXTENSION_ID = "media-detector@aven.app";
     private static AvenApplication instance;
+
+    private final Set<String> promptedMediaUrls = new HashSet<>();
     private GeckoRuntime runtime;
     private ContentBlocking.Settings contentBlocking;
     private WebExtension ublock;
+    private WebExtension mediaDetector;
 
     public static AvenApplication get() { return instance; }
     public GeckoRuntime runtime() { return runtime; }
@@ -58,6 +68,7 @@ public class AvenApplication extends Application {
 
         runtime = GeckoRuntime.create(this, settings);
         installUblock();
+        installMediaDetector();
     }
 
     private void installUblock() {
@@ -69,6 +80,44 @@ public class AvenApplication extends Application {
                     applyAdBlockPreference();
                     Log.i(TAG, "uBlock Origin integrado e carregado: " + extension.id);
                 }, error -> Log.e(TAG, "Falha ao carregar uBlock Origin integrado", error));
+    }
+
+    private void installMediaDetector() {
+        runtime.getWebExtensionController()
+                .ensureBuiltIn("resource://android/assets/aven_media/", MEDIA_EXTENSION_ID)
+                .accept(extension -> {
+                    mediaDetector = extension;
+                    runtime.getWebExtensionController().setAllowedInPrivateBrowsing(extension, true);
+                    extension.setMessageDelegate(new WebExtension.MessageDelegate() {
+                        @Override
+                        public GeckoResult<Object> onMessage(String nativeApp, Object message, WebExtension.MessageSender sender) {
+                            if (!(message instanceof JSONObject)) return null;
+                            JSONObject data = (JSONObject) message;
+                            if (!"mediaDetected".equals(data.optString("type"))) return null;
+
+                            String url = data.optString("url", "");
+                            if (!(url.startsWith("https://") || url.startsWith("http://"))) return null;
+                            if (!isVideoDownloaderEnabled()) return null;
+
+                            synchronized (promptedMediaUrls) {
+                                if (!promptedMediaUrls.add(url)) return null;
+                            }
+
+                            Intent prompt = new Intent(AvenApplication.this, MediaPromptActivity.class);
+                            prompt.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                            prompt.putExtra(MediaPromptActivity.EXTRA_URL, url);
+                            prompt.putExtra(MediaPromptActivity.EXTRA_PAGE_URL, data.optString("pageUrl", ""));
+                            prompt.putExtra(MediaPromptActivity.EXTRA_TITLE, data.optString("title", "Video"));
+                            prompt.putExtra(MediaPromptActivity.EXTRA_MIME, data.optString("mime", ""));
+                            prompt.putExtra(MediaPromptActivity.EXTRA_COOKIES, data.optString("cookies", ""));
+                            prompt.putExtra(MediaPromptActivity.EXTRA_USER_AGENT, data.optString("userAgent", ""));
+                            prompt.putExtra(MediaPromptActivity.EXTRA_DURATION, data.optDouble("duration", 0d));
+                            startActivity(prompt);
+                            return null;
+                        }
+                    }, "aven_media");
+                    Log.i(TAG, "Detector de mídia Aven carregado: " + extension.id);
+                }, error -> Log.e(TAG, "Falha ao carregar detector de mídia Aven", error));
     }
 
     public void setAdBlockEnabled(boolean enabled) {
@@ -100,7 +149,16 @@ public class AvenApplication extends Application {
         return getSharedPreferences("aven", MODE_PRIVATE).getBoolean("anti_tracking", true);
     }
 
+    public void setVideoDownloaderEnabled(boolean enabled) {
+        getSharedPreferences("aven", MODE_PRIVATE).edit().putBoolean("video_downloader", enabled).apply();
+    }
+
+    public boolean isVideoDownloaderEnabled() {
+        return getSharedPreferences("aven", MODE_PRIVATE).getBoolean("video_downloader", true);
+    }
+
     public void setPreferredWebTheme(int mode) {
+        if (runtime == null) return;
         int scheme = GeckoRuntimeSettings.COLOR_SCHEME_SYSTEM;
         if (mode == 1) scheme = GeckoRuntimeSettings.COLOR_SCHEME_LIGHT;
         if (mode == 2) scheme = GeckoRuntimeSettings.COLOR_SCHEME_DARK;

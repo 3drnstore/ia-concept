@@ -35,20 +35,51 @@ jobs:
           unzip -q /tmp/ublock.xpi -d aven-browser/app/src/main/assets/ublock
           test -f aven-browser/app/src/main/assets/ublock/manifest.json
 
+      - name: Validate bundled Aven media detector
+        run: |
+          set -euxo pipefail
+          test -f aven-browser/app/src/main/assets/aven_media/manifest.json
+          test -f aven-browser/app/src/main/assets/aven_media/background.js
+          test -f aven-browser/app/src/main/assets/aven_media/content.js
+          grep -q 'media-detector@aven.app' aven-browser/app/src/main/assets/aven_media/manifest.json
+
       - name: Build debug APK
         working-directory: aven-browser
         run: gradle --no-daemon assembleDebug
 
+      - name: Verify APK package, icon and signatures
+        run: |
+          set -euxo pipefail
+          APK='aven-browser/app/build/outputs/apk/debug/app-debug.apk'
+          test -s "$APK"
+          unzip -t "$APK" >/dev/null
+          unzip -l "$APK" | grep -q 'assets/aven_media/manifest.json'
+          unzip -l "$APK" | grep -q 'res/.*ic_launcher'
+
+          BUILD_TOOLS=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
+          "$BUILD_TOOLS/apksigner" verify --verbose --print-certs "$APK" | tee /tmp/apksigner.txt
+          grep -q 'Verified using v1 scheme (JAR signing): true' /tmp/apksigner.txt
+          grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' /tmp/apksigner.txt
+          grep -q 'Verified using v3 scheme (APK Signature Scheme v3): true' /tmp/apksigner.txt
+
+          if [ -x "$BUILD_TOOLS/aapt" ]; then
+            "$BUILD_TOOLS/aapt" dump badging "$APK" | tee /tmp/badging.txt
+          else
+            "$BUILD_TOOLS/aapt2" dump badging "$APK" | tee /tmp/badging.txt
+          fi
+          grep -q "package: name='app.aven.browser'" /tmp/badging.txt
+          grep -q "application-label:'Aven'" /tmp/badging.txt
+
       - name: Rename APK
         run: |
-          cp aven-browser/app/build/outputs/apk/debug/app-debug.apk Aven-1.0.0-debug.apk
-          sha256sum Aven-1.0.0-debug.apk > Aven-1.0.0-debug.apk.sha256
+          cp aven-browser/app/build/outputs/apk/debug/app-debug.apk Aven-1.1.0-arm64.apk
+          sha256sum Aven-1.1.0-arm64.apk > Aven-1.1.0-arm64.apk.sha256
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Aven-APK
+          name: Aven-1.1.0-ARM64-APK
           path: |
-            Aven-1.0.0-debug.apk
-            Aven-1.0.0-debug.apk.sha256
+            Aven-1.1.0-arm64.apk
+            Aven-1.1.0-arm64.apk.sha256
           retention-days: 30
