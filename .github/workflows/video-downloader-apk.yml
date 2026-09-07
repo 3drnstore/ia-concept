@@ -116,7 +116,7 @@ jobs:
           grep -q 'Verified using v2 scheme (APK Signature Scheme v2): true' /tmp/apksigner.txt
           grep -q 'Verified using v3 scheme (APK Signature Scheme v3): true' /tmp/apksigner.txt
           grep -q "package: name='app.videodownloader.local'" /tmp/badging.txt
-          grep -q "sdkVersion:'24'" /tmp/badging.txt
+          grep -q "minSdkVersion:'24'" /tmp/badging.txt
           grep -q "targetSdkVersion:'28'" /tmp/badging.txt
 
       - name: Validate advanced engine inside final APK
