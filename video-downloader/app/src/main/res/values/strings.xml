@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Video Downloader</string>
+    <string name="subtitle">Cole um link do TikTok, Instagram ou X/Twitter e baixe o vídeo sem anúncios.</string>
+    <string name="link_hint">Cole o link do vídeo aqui</string>
+    <string name="paste">Colar</string>
+    <string name="download">Baixar vídeo</string>
+    <string name="cancel">Cancelar download</string>
+    <string name="engine_preparing">Preparando o motor de download…</string>
+    <string name="engine_ready">Motor pronto • sem anúncios</string>
+    <string name="engine_error">Falha ao preparar o motor</string>
+    <string name="engine_not_ready">O motor ainda não está pronto.</string>
+    <string name="ready_to_download">Pronto para receber um link.</string>
+    <string name="clipboard_empty">A área de transferência está vazia.</string>
+    <string name="no_link_found">Não encontrei um link válido no texto copiado.</string>
+    <string name="invalid_link">Cole um link http ou https válido.</string>
+    <string name="starting_download">Preparando download de %1$s…</string>
+    <string name="downloading_progress">Baixando… %1$d%% • ETA %2$d s</string>
+    <string name="download_complete">Concluído: %1$s</string>
+    <string name="download_canceled">Download cancelado.</string>
+    <string name="canceling_download">Cancelando…</string>
+    <string name="download_failed">Não foi possível concluir o download.</string>
+    <string name="saved_to_downloads">Vídeo salvo em Downloads/Video Downloader.</string>
+    <string name="storage_permission_needed">Permita o acesso ao armazenamento para salvar o vídeo nesta versão do Android.</string>
+    <string name="error_prefix">Erro: %1$s</string>
+    <string name="footer_note">Os arquivos são salvos em Downloads/Video Downloader. O app não tem anúncios, analytics ou rastreadores. Use apenas com vídeos que você tenha direito de baixar; conteúdo privado ou que exija login pode não funcionar.</string>
+</resources>
