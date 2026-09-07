@@ -43,6 +43,34 @@ jobs:
           test -f aven-browser/app/src/main/assets/aven_media/content.js
           grep -q 'media-detector@aven.app' aven-browser/app/src/main/assets/aven_media/manifest.json
 
+      - name: Validate PT-BR interface and safe startup
+        run: |
+          set -euxo pipefail
+          SRC='aven-browser/app/src/main/java/app/aven/browser/MainActivity.java'
+          APP='aven-browser/app/src/main/java/app/aven/browser/AvenApplication.java'
+          grep -q 'Navegue livremente' "$SRC"
+          grep -q 'Pesquisar ou digitar endereço' "$SRC"
+          grep -q 'Privacidade e segurança' "$SRC"
+          grep -q 'Downloader de vídeos' "$SRC"
+          grep -q 'ensureBrowserExtensions' "$APP"
+          ! grep -q 'installUblock();' "$APP"
+
+      - name: Normalize fractional density helper
+        run: |
+          set -euxo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('aven-browser/app/src/main/java/app/aven/browser/MainActivity.java')
+          source = path.read_text(encoding='utf-8')
+          marker = '    private int dp(int value) { return Math.round(value * getResources().getDisplayMetrics().density); }\n'
+          overload = '    private float dp(float value) { return value * getResources().getDisplayMetrics().density; }\n'
+          if overload not in source:
+              if marker not in source:
+                  raise SystemExit('dp(int) helper not found')
+              source = source.replace(marker, marker + overload)
+              path.write_text(source, encoding='utf-8')
+          PY
+
       - name: Build unsigned release APK
         working-directory: aven-browser
         run: gradle --no-daemon assembleRelease
@@ -51,7 +79,7 @@ jobs:
         run: |
           set -euxo pipefail
           INPUT='aven-browser/app/build/outputs/apk/release/app-release-unsigned.apk'
-          FINAL='Aven-1.1.0-arm64.apk'
+          FINAL='Aven-1.2.0-arm64.apk'
           KEYSTORE='/tmp/aven-test.keystore'
           BUILD_TOOLS=$(find "$ANDROID_HOME/build-tools" -mindepth 1 -maxdepth 1 -type d | sort -V | tail -1)
 
@@ -82,7 +110,7 @@ jobs:
       - name: Verify APK package, icon and signatures
         run: |
           set -euxo pipefail
-          APK='Aven-1.1.0-arm64.apk'
+          APK='Aven-1.2.0-arm64.apk'
           test -s "$APK"
           unzip -t "$APK" >/dev/null
           unzip -l "$APK" | grep -q 'assets/aven_media/manifest.json'
@@ -107,13 +135,13 @@ jobs:
           grep -q "application-label:'Aven'" /tmp/badging.txt
           grep -q 'application-icon-' /tmp/badging.txt
           grep -q "sdkVersion:'26'" /tmp/badging.txt
-          sha256sum "$APK" > Aven-1.1.0-arm64.apk.sha256
+          sha256sum "$APK" > Aven-1.2.0-arm64.apk.sha256
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Aven-1.1.0-ARM64-APK
+          name: Aven-1.2.0-ARM64-APK
           path: |
-            Aven-1.1.0-arm64.apk
-            Aven-1.1.0-arm64.apk.sha256
+            Aven-1.2.0-arm64.apk
+            Aven-1.2.0-arm64.apk.sha256
           retention-days: 30
